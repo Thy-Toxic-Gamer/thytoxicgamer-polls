@@ -18,6 +18,12 @@ const elements = {
   pollStatus: document.querySelector("#poll-status"),
   pollQuestion: document.querySelector("#poll-question"),
   pollInstruction: document.querySelector("#poll-instruction"),
+  voteConfirmation: document.querySelector("#vote-confirmation"),
+  voteConfirmationChoice: document.querySelector("#vote-confirmation-choice"),
+  voteDialog: document.querySelector("#vote-dialog"),
+  voteDialogChoice: document.querySelector("#vote-dialog-choice"),
+  voteDialogCancel: document.querySelector("#vote-dialog-cancel"),
+  voteDialogConfirm: document.querySelector("#vote-dialog-confirm"),
   choices: document.querySelector("#choices"),
   choiceTemplate: document.querySelector("#choice-template"),
   voteTotal: document.querySelector("#vote-total"),
@@ -32,6 +38,7 @@ const state = {
   refreshTimer: null,
   countdownTimer: null,
   submitting: false,
+  pendingOptionId: "",
   demoCloseAt: new Date(Date.now() + 120000).toISOString(),
   demoGameCloseAt: new Date(Date.now() + 9000000).toISOString(),
 };
@@ -219,6 +226,36 @@ function selectPoll(pollId) {
   }
 }
 
+function openVoteDialog(optionId) {
+  if (state.submitting || !state.poll || getStoredVote(state.poll.id)) return;
+  const option = state.poll.options.find((item) => item.id === optionId);
+  if (!option) return;
+
+  state.pendingOptionId = option.id;
+  elements.voteDialogChoice.textContent = option.label;
+  elements.voteDialog.showModal();
+}
+
+function closeVoteDialog() {
+  state.pendingOptionId = "";
+  if (elements.voteDialog.open) elements.voteDialog.close();
+}
+
+function returnToStreamAfterVote() {
+  if (config.demoMode) return;
+
+  window.setTimeout(() => {
+    // This succeeds when Twitch opened the Poll Center in a closable tab.
+    window.close();
+
+    // Browsers may block window.close(). If the tab remains open,
+    // return the viewer directly to the Twitch stream instead.
+    window.setTimeout(() => {
+      window.location.replace(config.streamUrl || "https://www.twitch.tv/thytoxicgamer");
+    }, 500);
+  }, 1500);
+}
+
 function renderPoll(poll) {
   state.poll = normalizePoll(poll);
   const isOpen = state.poll.status === "active" && Date.now() < Date.parse(state.poll.closesAt);
@@ -228,6 +265,10 @@ function renderPoll(poll) {
     state.poll.resultsMode === "live" ||
     (state.poll.resultsMode === "after_vote" && Boolean(storedVote));
   const isGamePoll = state.poll.pollStyle === "game_library";
+  const selectedOption = storedVote
+    ? state.poll.options.find((option) => option.id === storedVote)
+    : null;
+  const voteComplete = isOpen && Boolean(storedVote);
 
   showOnly(elements.activeView);
   elements.pollQuestion.textContent = state.poll.question;
@@ -235,50 +276,54 @@ function renderPoll(poll) {
   elements.pollStatus.textContent = isOpen ? "Poll open" : state.poll.status === "cancelled" ? "Poll cancelled" : "Poll closed";
   elements.pollStatus.dataset.status = isOpen ? "active" : state.poll.status;
   elements.pollInstruction.textContent = isOpen
-    ? storedVote
-      ? state.poll.resultsMode === "after_close"
-        ? "Your vote is locked in. Results will be revealed when the timer ends."
-        : "Your vote is locked in. Results will update automatically."
-      : isGamePoll
-        ? "Choose one game. Use the tiles below or switch to the other live poll above."
-        : "Choose one option. Your vote is final."
+    ? isGamePoll
+      ? "Choose one game. Your vote is final."
+      : "Choose one option. Your vote is final."
     : "Voting has ended. Final results are below.";
+  elements.pollInstruction.hidden = voteComplete;
+
+  elements.voteConfirmation.hidden = !voteComplete;
+  elements.voteConfirmationChoice.textContent = selectedOption
+    ? selectedOption.label
+    : "Your selected answer";
 
   elements.choices.replaceChildren();
   elements.choices.classList.toggle("game-choices", isGamePoll);
-  state.poll.options.forEach((option) => {
-    const choice = elements.choiceTemplate.content.firstElementChild.cloneNode(true);
-    const selected = storedVote === option.id;
-    choice.dataset.optionId = option.id;
-    choice.classList.toggle("selected", selected);
-    choice.classList.toggle("results-visible", showResults);
-    choice.disabled = !isOpen || Boolean(storedVote) || state.submitting;
-    choice.setAttribute("aria-pressed", String(selected));
-    choice.querySelector(".choice-label").textContent = option.label;
-    choice.querySelector(".choice-percent").textContent = showResults
-      ? `${option.percentage}%`
-      : storedVote
-        ? "Results hidden"
+  elements.choices.hidden = voteComplete;
+
+  if (!voteComplete) {
+    state.poll.options.forEach((option) => {
+      const choice = elements.choiceTemplate.content.firstElementChild.cloneNode(true);
+      const selected = storedVote === option.id;
+      choice.dataset.optionId = option.id;
+      choice.classList.toggle("selected", selected);
+      choice.classList.toggle("results-visible", showResults);
+      choice.disabled = !isOpen || Boolean(storedVote) || state.submitting;
+      choice.setAttribute("aria-checked", String(selected));
+      choice.querySelector(".choice-label").textContent = option.label;
+      choice.querySelector(".choice-percent").textContent = showResults
+        ? `${option.percentage}%`
         : "Select";
-    choice.querySelector(".choice-fill").style.width = showResults ? `${option.percentage}%` : "0%";
-    choice.querySelector(".choice-votes").textContent = showResults
-      ? `${option.votes} ${option.votes === 1 ? "vote" : "votes"}`
-      : "";
+      choice.querySelector(".choice-fill").style.width = showResults ? `${option.percentage}%` : "0%";
+      choice.querySelector(".choice-votes").textContent = showResults
+        ? `${option.votes} ${option.votes === 1 ? "vote" : "votes"}`
+        : "";
 
-    if (isGamePoll) {
-      const art = choice.querySelector(".choice-game-art");
-      art.hidden = false;
-      art.classList.add(`variant-${option.tileVariant}`);
-      art.querySelector(".choice-game-code").textContent = option.tileCode || option.label.slice(0, 3).toUpperCase();
-    }
+      if (isGamePoll) {
+        const art = choice.querySelector(".choice-game-art");
+        art.hidden = false;
+        art.classList.add(`variant-${option.tileVariant}`);
+        art.querySelector(".choice-game-code").textContent = option.tileCode || option.label.slice(0, 3).toUpperCase();
+      }
 
-    choice.addEventListener("click", () => submitVote(option.id));
-    elements.choices.append(choice);
-  });
+      choice.addEventListener("click", () => openVoteDialog(option.id));
+      elements.choices.append(choice);
+    });
+  }
 
   elements.resultCallout.hidden = isOpen;
   elements.resultCallout.textContent = isOpen ? "" : resultSummary(state.poll);
-  elements.voteNotice.textContent = storedVote && isOpen ? "☣ Vote accepted. Stay on this page to watch the results." : "";
+  elements.voteNotice.textContent = state.submitting ? "Submitting your vote..." : "";
   elements.timer.hidden = false;
   setConnection(isOpen ? "live" : "closed", isOpen ? "Poll live" : "Poll closed");
   startCountdown();
@@ -345,6 +390,7 @@ async function submitVote(optionId) {
     const updatedPoll = normalizePoll(response.poll);
     state.polls = state.polls.map((poll) => (poll.id === updatedPoll.id ? updatedPoll : poll));
     renderPoll(updatedPoll);
+    returnToStreamAfterVote();
   } catch (error) {
     voteError = error.status === 409
       ? "This browser has already voted in this poll."
@@ -411,6 +457,24 @@ elements.retryButton.addEventListener("click", () => {
   showOnly(elements.loadingView);
   setConnection("waiting", "Checking polls");
   refreshPolls();
+});
+
+elements.voteDialogCancel.addEventListener("click", closeVoteDialog);
+
+elements.voteDialogConfirm.addEventListener("click", () => {
+  const optionId = state.pendingOptionId;
+  if (!optionId || state.submitting) return;
+  closeVoteDialog();
+  submitVote(optionId);
+});
+
+elements.voteDialog.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeVoteDialog();
+});
+
+elements.voteDialog.addEventListener("click", (event) => {
+  if (event.target === elements.voteDialog) closeVoteDialog();
 });
 
 beginPolling();

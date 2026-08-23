@@ -3,5 +3,6 @@ window.TOXIC_POLL_CONFIG = Object.freeze({
   refreshMs: 2500,
   siteUrl: "https://thy-toxic-gamer.github.io/thytoxicgamer-polls/",
   adminPageUrl: "https://thy-toxic-gamer.github.io/thytoxicgamer-polls/admin.html",
+  streamUrl: "https://www.twitch.tv/thytoxicgamer",
   demoMode: new URLSearchParams(window.location.search).get("demo") === "1",
 });
