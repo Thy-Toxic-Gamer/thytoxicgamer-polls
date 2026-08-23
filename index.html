@@ -16,7 +16,7 @@
     <meta name="twitter:image" content="https://thy-toxic-gamer.github.io/thytoxicgamer-polls/toxic-poll-banner.png" />
     <title>ThyToxicGamer Toxic Poll Center</title>
     <link rel="preload" as="image" href="toxic-poll-banner.webp" fetchpriority="high" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=2.1.1" />
   </head>
   <body>
     <main class="site-shell">
@@ -81,7 +81,19 @@
           <h3 class="poll-question" id="poll-question"></h3>
           <p class="poll-instruction" id="poll-instruction">Choose one option. Your vote is final.</p>
 
-          <div class="choices" id="choices" role="group" aria-label="Poll choices"></div>
+          <div
+            class="vote-confirmation"
+            id="vote-confirmation"
+            role="status"
+            aria-live="polite"
+            hidden
+          >
+            <p class="vote-confirmation-label">Vote submitted</p>
+            <h4 id="vote-confirmation-choice"></h4>
+            <p>Your choice is locked in. Returning you to the stream...</p>
+          </div>
+
+          <div class="choices" id="choices" role="radiogroup" aria-label="Poll choices"></div>
 
           <div class="result-callout" id="result-callout" hidden></div>
           <p class="vote-notice" id="vote-notice" aria-live="polite"></p>
@@ -108,8 +120,22 @@
       </footer>
     </main>
 
+    <dialog class="vote-dialog" id="vote-dialog" aria-labelledby="vote-dialog-title">
+      <div class="vote-dialog-content">
+        <p class="vote-dialog-label">Final confirmation</p>
+        <h2 id="vote-dialog-title">Confirm your vote</h2>
+        <p>You selected:</p>
+        <strong class="vote-dialog-choice" id="vote-dialog-choice"></strong>
+        <p class="vote-dialog-warning">Are you sure? Your answer cannot be changed after it is submitted.</p>
+        <div class="vote-dialog-actions">
+          <button class="secondary-button" id="vote-dialog-cancel" type="button">Go Back</button>
+          <button class="confirm-vote-button" id="vote-dialog-confirm" type="button">Confirm Vote</button>
+        </div>
+      </div>
+    </dialog>
+
     <template id="choice-template">
-      <button class="choice" type="button">
+      <button class="choice" type="button" role="radio" aria-checked="false">
         <span class="choice-game-art" hidden aria-hidden="true">
           <span class="choice-game-code"></span>
         </span>
@@ -124,7 +150,7 @@
       </button>
     </template>
 
-    <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script src="config.js?v=2.1.1"></script>
+    <script src="app.js?v=2.1.1"></script>
   </body>
 </html>
