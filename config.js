@@ -1,6 +1,5 @@
 window.TOXIC_POLL_CONFIG = Object.freeze({
-  // This will be filled in after the poll API is published.
-  apiBaseUrl: "",
+  apiBaseUrl: "https://thytoxicgamer-polls-api.thytoxicgamer.workers.dev",
   refreshMs: 2500,
   siteUrl: "https://thy-toxic-gamer.github.io/thytoxicgamer-polls/",
   adminPageUrl: "https://thy-toxic-gamer.github.io/thytoxicgamer-polls/admin.html",
