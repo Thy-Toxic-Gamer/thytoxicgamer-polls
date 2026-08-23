@@ -1,10 +1,14 @@
 const config = window.TOXIC_POLL_CONFIG;
+const requestedPollId = new URLSearchParams(window.location.search).get("poll");
 
 const elements = {
   connectionPill: document.querySelector("#connection-pill"),
   connectionText: document.querySelector("#connection-text"),
   timer: document.querySelector("#timer"),
   timerValue: document.querySelector("#timer-value"),
+  switcher: document.querySelector("#poll-switcher"),
+  switcherLabel: document.querySelector("#poll-switcher-label"),
+  pollTabs: document.querySelector("#poll-tabs"),
   loadingView: document.querySelector("#loading-view"),
   waitingView: document.querySelector("#waiting-view"),
   activeView: document.querySelector("#active-view"),
@@ -22,22 +26,23 @@ const elements = {
 };
 
 const state = {
+  polls: [],
   poll: null,
+  selectedPollId: requestedPollId || "",
   refreshTimer: null,
   countdownTimer: null,
   submitting: false,
   demoCloseAt: new Date(Date.now() + 120000).toISOString(),
+  demoGameCloseAt: new Date(Date.now() + 9000000).toISOString(),
 };
 
 function getViewerId() {
   const storageKey = "toxicPollViewerId";
   let viewerId = localStorage.getItem(storageKey);
-
   if (!viewerId) {
     viewerId = window.crypto?.randomUUID?.() || `viewer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     localStorage.setItem(storageKey, viewerId);
   }
-
   return viewerId;
 }
 
@@ -53,39 +58,68 @@ function setStoredVote(pollId, optionId) {
   localStorage.setItem(voteKey(pollId), optionId);
 }
 
-function getDemoPoll() {
-  const storedChoice = getStoredVote("demo-toxic-poll");
-  const options = [
+function withDemoVote(pollId, options) {
+  const storedChoice = getStoredVote(pollId);
+  return options.map((option) => ({
+    ...option,
+    votes: option.votes + (option.id === storedChoice ? 1 : 0),
+  }));
+}
+
+function getDemoPolls() {
+  const communityOptions = withDemoVote("demo-toxic-poll", [
     { id: "ffxiv", label: "Final Fantasy XIV", votes: 7 },
     { id: "doom", label: "DOOM", votes: 5 },
     { id: "enshrouded", label: "Enshrouded", votes: 3 },
+  ]);
+  const gameOptions = withDemoVote("demo-game-poll", [
+    { id: "hades", label: "Hades II", tileCode: "HII", tileVariant: 1, votes: 4 },
+    { id: "poe2", label: "Path of Exile 2", tileCode: "POE", tileVariant: 2, votes: 3 },
+    { id: "valheim", label: "Valheim", tileCode: "V", tileVariant: 3, votes: 2 },
+    { id: "warframe", label: "Warframe", tileCode: "W", tileVariant: 4, votes: 2 },
+    { id: "palworld", label: "Palworld", tileCode: "P", tileVariant: 5, votes: 1 },
+    { id: "witcher", label: "The Witcher 3: Wild Hunt", tileCode: "TW3", tileVariant: 6, votes: 1 },
+    { id: "darktide", label: "Warhammer 40,000: Darktide", tileCode: "W40", tileVariant: 7, votes: 1 },
+    { id: "ark", label: "ARK: Survival Ascended", tileCode: "ASA", tileVariant: 8, votes: 1 },
+  ]);
+
+  return [
+    normalizePoll({
+      id: "demo-toxic-poll",
+      question: "Which game should contaminate the stream next?",
+      pollStyle: "multiple",
+      resultsMode: "after_vote",
+      status: Date.now() >= Date.parse(state.demoCloseAt) ? "closed" : "active",
+      closesAt: state.demoCloseAt,
+      options: communityOptions,
+    }),
+    normalizePoll({
+      id: "demo-game-poll",
+      question: "What should ThyToxicGamer play during the next community stream?",
+      pollStyle: "game_library",
+      resultsMode: "after_vote",
+      status: Date.now() >= Date.parse(state.demoGameCloseAt) ? "closed" : "active",
+      closesAt: state.demoGameCloseAt,
+      options: gameOptions,
+    }),
   ];
-
-  if (storedChoice) {
-    const selected = options.find((option) => option.id === storedChoice);
-    if (selected) selected.votes += 1;
-  }
-
-  return normalizePoll({
-    id: "demo-toxic-poll",
-    question: "Which game should contaminate the stream next?",
-    status: Date.now() >= Date.parse(state.demoCloseAt) ? "closed" : "active",
-    closesAt: state.demoCloseAt,
-    options,
-  });
 }
 
 function normalizePoll(poll) {
-  const options = (poll.options || []).map((option) => ({
+  const options = (poll.options || []).map((option, index) => ({
     id: String(option.id),
     label: String(option.label),
     votes: Number(option.votes || 0),
+    tileCode: String(option.tileCode || ""),
+    tileVariant: Number(option.tileVariant || ((index % 8) + 1)),
   }));
   const totalVotes = options.reduce((sum, option) => sum + option.votes, 0);
 
   return {
     id: String(poll.id),
     question: String(poll.question),
+    pollStyle: String(poll.pollStyle || "multiple"),
+    resultsMode: String(poll.resultsMode || "after_vote"),
     status: String(poll.status || "active").toLowerCase(),
     closesAt: poll.closesAt,
     totalVotes,
@@ -99,7 +133,6 @@ function normalizePoll(poll) {
 async function apiRequest(path, options = {}) {
   const baseUrl = config.apiBaseUrl.replace(/\/$/, "");
   if (!baseUrl) return null;
-
   const response = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers: {
@@ -107,7 +140,6 @@ async function apiRequest(path, options = {}) {
       ...(options.headers || {}),
     },
   });
-
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(body.message || "The Poll Center request failed.");
@@ -115,7 +147,6 @@ async function apiRequest(path, options = {}) {
     error.code = body.error;
     throw error;
   }
-
   return body;
 }
 
@@ -134,6 +165,7 @@ function showWaiting() {
   state.poll = null;
   showOnly(elements.waitingView);
   elements.timer.hidden = true;
+  elements.switcher.hidden = true;
   setConnection("waiting", "Awaiting poll");
   clearInterval(state.countdownTimer);
 }
@@ -147,22 +179,55 @@ function showError(message) {
 
 function resultSummary(poll) {
   if (!poll.totalVotes) return "The poll closed without any votes.";
-
   const topVotes = Math.max(...poll.options.map((option) => option.votes));
   const winners = poll.options.filter((option) => option.votes === topVotes);
-
   if (winners.length > 1) {
     return `${winners.map((option) => option.label).join(" and ")} finished in a tie with ${winners[0].percentage}%.`;
   }
-
   return `${winners[0].label} wins with ${winners[0].percentage}% of the vote!`;
+}
+
+function renderSwitcher() {
+  elements.pollTabs.replaceChildren();
+  elements.switcher.hidden = state.polls.length < 2;
+  elements.switcherLabel.textContent = `${state.polls.length} polls available`;
+  state.polls.forEach((poll, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "poll-tab";
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(poll.id === state.selectedPollId));
+    const prefix = poll.pollStyle === "game_library" ? "Game vote" : `Poll ${index + 1}`;
+    const shortQuestion = poll.question.length > 44 ? `${poll.question.slice(0, 41)}...` : poll.question;
+    button.textContent = `${prefix}: ${shortQuestion}`;
+    button.addEventListener("click", () => selectPoll(poll.id));
+    elements.pollTabs.append(button);
+  });
+}
+
+function selectPoll(pollId) {
+  const poll = state.polls.find((item) => item.id === pollId);
+  if (!poll) return;
+  state.selectedPollId = poll.id;
+  state.poll = poll;
+  renderSwitcher();
+  renderPoll(poll);
+  if (!config.demoMode) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("poll", poll.id);
+    window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+  }
 }
 
 function renderPoll(poll) {
   state.poll = normalizePoll(poll);
   const isOpen = state.poll.status === "active" && Date.now() < Date.parse(state.poll.closesAt);
   const storedVote = getStoredVote(state.poll.id);
-  const showResults = Boolean(storedVote) || !isOpen;
+  const showResults =
+    !isOpen ||
+    state.poll.resultsMode === "live" ||
+    (state.poll.resultsMode === "after_vote" && Boolean(storedVote));
+  const isGamePoll = state.poll.pollStyle === "game_library";
 
   showOnly(elements.activeView);
   elements.pollQuestion.textContent = state.poll.question;
@@ -171,11 +236,16 @@ function renderPoll(poll) {
   elements.pollStatus.dataset.status = isOpen ? "active" : state.poll.status;
   elements.pollInstruction.textContent = isOpen
     ? storedVote
-      ? "Your vote is locked in. Results will update automatically."
-      : "Choose one option. Your vote is final."
+      ? state.poll.resultsMode === "after_close"
+        ? "Your vote is locked in. Results will be revealed when the timer ends."
+        : "Your vote is locked in. Results will update automatically."
+      : isGamePoll
+        ? "Choose one game. Use the tiles below or switch to the other live poll above."
+        : "Choose one option. Your vote is final."
     : "Voting has ended. Final results are below.";
 
   elements.choices.replaceChildren();
+  elements.choices.classList.toggle("game-choices", isGamePoll);
   state.poll.options.forEach((option) => {
     const choice = elements.choiceTemplate.content.firstElementChild.cloneNode(true);
     const selected = storedVote === option.id;
@@ -185,9 +255,23 @@ function renderPoll(poll) {
     choice.disabled = !isOpen || Boolean(storedVote) || state.submitting;
     choice.setAttribute("aria-pressed", String(selected));
     choice.querySelector(".choice-label").textContent = option.label;
-    choice.querySelector(".choice-percent").textContent = showResults ? `${option.percentage}%` : "Select";
+    choice.querySelector(".choice-percent").textContent = showResults
+      ? `${option.percentage}%`
+      : storedVote
+        ? "Results hidden"
+        : "Select";
     choice.querySelector(".choice-fill").style.width = showResults ? `${option.percentage}%` : "0%";
-    choice.querySelector(".choice-votes").textContent = showResults ? `${option.votes} ${option.votes === 1 ? "vote" : "votes"}` : "";
+    choice.querySelector(".choice-votes").textContent = showResults
+      ? `${option.votes} ${option.votes === 1 ? "vote" : "votes"}`
+      : "";
+
+    if (isGamePoll) {
+      const art = choice.querySelector(".choice-game-art");
+      art.hidden = false;
+      art.classList.add(`variant-${option.tileVariant}`);
+      art.querySelector(".choice-game-code").textContent = option.tileCode || option.label.slice(0, 3).toUpperCase();
+    }
+
     choice.addEventListener("click", () => submitVote(option.id));
     elements.choices.append(choice);
   });
@@ -200,24 +284,39 @@ function renderPoll(poll) {
   startCountdown();
 }
 
+function formatRemaining(milliseconds) {
+  const seconds = Math.ceil(Math.max(0, milliseconds) / 1000);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secondsPart = seconds % 60;
+  return hours
+    ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secondsPart).padStart(2, "0")}`
+    : `${String(minutes).padStart(2, "0")}:${String(secondsPart).padStart(2, "0")}`;
+}
+
 function startCountdown() {
   clearInterval(state.countdownTimer);
-
-  const update = () => {
+  const update = async () => {
     if (!state.poll?.closesAt) return;
     const remaining = Math.max(0, Date.parse(state.poll.closesAt) - Date.now());
-    const seconds = Math.ceil(remaining / 1000);
-    const minutesPart = String(Math.floor(seconds / 60)).padStart(2, "0");
-    const secondsPart = String(seconds % 60).padStart(2, "0");
-    elements.timerValue.textContent = `${minutesPart}:${secondsPart}`;
-
+    elements.timerValue.textContent = formatRemaining(remaining);
     if (!remaining && state.poll.status === "active") {
-      state.poll.status = "closed";
-      renderPoll(state.poll);
-      refreshPoll();
+      clearInterval(state.countdownTimer);
+      if (config.demoMode) {
+        state.poll.status = "closed";
+        renderPoll(state.poll);
+        return;
+      }
+      try {
+        const response = await apiRequest(`/api/polls/${encodeURIComponent(state.poll.id)}/results`);
+        const closedPoll = normalizePoll(response.poll);
+        state.polls = state.polls.map((poll) => (poll.id === closedPoll.id ? closedPoll : poll));
+        renderPoll(closedPoll);
+      } catch {
+        refreshPolls();
+      }
     }
   };
-
   update();
   state.countdownTimer = setInterval(update, 250);
 }
@@ -232,7 +331,9 @@ async function submitVote(optionId) {
   try {
     if (config.demoMode) {
       setStoredVote(state.poll.id, optionId);
-      renderPoll(getDemoPoll());
+      const demoPoll = getDemoPolls().find((poll) => poll.id === state.poll.id);
+      state.polls = state.polls.map((poll) => (poll.id === demoPoll.id ? demoPoll : poll));
+      renderPoll(demoPoll);
       return;
     }
 
@@ -241,13 +342,13 @@ async function submitVote(optionId) {
       body: JSON.stringify({ optionId, voterId: getViewerId() }),
     });
     setStoredVote(state.poll.id, optionId);
-    renderPoll(response.poll);
+    const updatedPoll = normalizePoll(response.poll);
+    state.polls = state.polls.map((poll) => (poll.id === updatedPoll.id ? updatedPoll : poll));
+    renderPoll(updatedPoll);
   } catch (error) {
-    if (error.status === 409) {
-      voteError = "This browser has already voted in this poll.";
-    } else {
-      voteError = error.message || "Your vote could not be submitted. Please try again.";
-    }
+    voteError = error.status === 409
+      ? "This browser has already voted in this poll."
+      : error.message || "Your vote could not be submitted. Please try again.";
   } finally {
     state.submitting = false;
     if (state.poll) renderPoll(state.poll);
@@ -255,20 +356,42 @@ async function submitVote(optionId) {
   }
 }
 
-async function refreshPoll() {
+async function refreshPolls() {
   try {
+    let polls;
     if (config.demoMode) {
-      renderPoll(getDemoPoll());
-      return;
+      polls = getDemoPolls();
+    } else {
+      if (!config.apiBaseUrl) {
+        showWaiting();
+        return;
+      }
+      const response = await apiRequest("/api/polls/active");
+      polls = (response.polls || []).map(normalizePoll);
+
+      const desiredId = state.selectedPollId || requestedPollId;
+      if (desiredId && !polls.some((poll) => poll.id === desiredId)) {
+        try {
+          const result = await apiRequest(`/api/polls/${encodeURIComponent(desiredId)}/results`);
+          if (result.poll) polls.push(normalizePoll(result.poll));
+        } catch {
+          // The requested poll may no longer exist; fall back to a live poll.
+        }
+      }
     }
 
-    if (!config.apiBaseUrl) {
+    if (!polls.length) {
       showWaiting();
       return;
     }
 
-    const response = await apiRequest("/api/polls/current");
-    renderPoll(response.poll);
+    state.polls = polls;
+    const selected = polls.find((poll) => poll.id === state.selectedPollId)
+      || polls.find((poll) => poll.id === requestedPollId)
+      || polls[0];
+    state.selectedPollId = selected.id;
+    renderSwitcher();
+    renderPoll(selected);
   } catch (error) {
     if (error.status === 404 || error.code === "no_poll") {
       showWaiting();
@@ -280,14 +403,14 @@ async function refreshPoll() {
 
 function beginPolling() {
   clearInterval(state.refreshTimer);
-  refreshPoll();
-  state.refreshTimer = setInterval(refreshPoll, config.refreshMs);
+  refreshPolls();
+  state.refreshTimer = setInterval(refreshPolls, config.refreshMs);
 }
 
 elements.retryButton.addEventListener("click", () => {
   showOnly(elements.loadingView);
-  setConnection("waiting", "Checking poll");
-  refreshPoll();
+  setConnection("waiting", "Checking polls");
+  refreshPolls();
 });
 
 beginPolling();

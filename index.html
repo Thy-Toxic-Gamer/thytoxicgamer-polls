@@ -54,6 +54,11 @@
           </div>
         </div>
 
+        <nav class="poll-switcher" id="poll-switcher" aria-label="Active polls" hidden>
+          <span id="poll-switcher-label">Active polls</span>
+          <div id="poll-tabs"></div>
+        </nav>
+
         <div class="poll-stage" id="loading-view">
           <div class="toxic-loader" aria-hidden="true"></div>
           <h3>Checking for contamination...</h3>
@@ -94,7 +99,7 @@
       <aside class="info-strip" aria-label="Voting information">
         <div><strong>One choice</strong><span>Pick the answer you want to win.</span></div>
         <div><strong>One vote</strong><span>Each browser can vote once per poll.</span></div>
-        <div><strong>Automatic results</strong><span>The winner returns to Twitch when time expires.</span></div>
+        <div><strong>Controlled results</strong><span>Percentages appear according to the poll creator's setting.</span></div>
       </aside>
 
       <footer>
@@ -105,12 +110,17 @@
 
     <template id="choice-template">
       <button class="choice" type="button">
-        <span class="choice-topline">
-          <span class="choice-label"></span>
-          <span class="choice-percent"></span>
+        <span class="choice-game-art" hidden aria-hidden="true">
+          <span class="choice-game-code"></span>
         </span>
-        <span class="choice-track" aria-hidden="true"><span class="choice-fill"></span></span>
-        <span class="choice-votes"></span>
+        <span class="choice-body">
+          <span class="choice-topline">
+            <span class="choice-label"></span>
+            <span class="choice-percent"></span>
+          </span>
+          <span class="choice-track" aria-hidden="true"><span class="choice-fill"></span></span>
+          <span class="choice-votes"></span>
+        </span>
       </button>
     </template>
 

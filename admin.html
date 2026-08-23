@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Protected Toxic Poll creator for ThyToxicGamer and channel moderators." />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <meta name="theme-color" content="#070a08" />
+    <title>ThyToxicGamer Poll Creator</title>
+    <link rel="preload" as="image" href="toxic-poll-banner.webp" fetchpriority="high" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body>
+    <main class="site-shell admin-shell">
+      <header class="site-header">
+        <div class="brand-copy">
+          <p class="eyebrow">⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆</p>
+          <h1>Poll Creator</h1>
+          <p class="intro">Build the decision. Release it to chat. Let the contamination decide.</p>
+        </div>
+        <div class="connection-pill" id="admin-pill" data-state="waiting">
+          <span class="connection-dot" aria-hidden="true"></span>
+          <span id="admin-pill-text">Checking access</span>
+        </div>
+      </header>
+
+      <figure class="site-banner admin-banner">
+        <img
+          src="toxic-poll-banner.webp"
+          width="1935"
+          height="813"
+          alt="Armored toxic wolf skull between a cracked biohazard symbol and a command terminal"
+          fetchpriority="high"
+        />
+      </figure>
+
+      <section class="access-card" id="authorizing-view">
+        <div class="toxic-loader" aria-hidden="true"></div>
+        <p class="section-label">Protected creator</p>
+        <h2>Verifying your temporary access...</h2>
+        <p>The creator opens only from a private link issued through Streamer.bot.</p>
+      </section>
+
+      <section class="access-card denied-card" id="denied-view" hidden>
+        <div class="status-symbol" aria-hidden="true">!</div>
+        <p class="section-label">Access unavailable</p>
+        <h2 id="denied-heading">This creator link is missing or expired</h2>
+        <p id="denied-message">Use <strong>!pollpanel</strong> in Twitch chat to request a fresh private link.</p>
+      </section>
+
+      <div id="creator-view" hidden>
+        <div class="demo-notice" id="demo-notice" hidden>
+          <strong>Creator demo mode</strong>
+          <span>You can test every control, but this preview will not post to Twitch or save votes.</span>
+        </div>
+
+        <section class="current-poll" id="current-poll" hidden aria-labelledby="current-poll-title">
+          <div class="current-poll-heading">
+            <p class="section-label">Currently live</p>
+            <h2 id="current-poll-title">Active Toxic Polls</h2>
+            <p>Up to two polls can run at the same time.</p>
+          </div>
+          <div class="current-poll-list" id="current-poll-list"></div>
+        </section>
+
+        <form class="creator-form" id="creator-form" novalidate>
+          <section class="creator-card" aria-labelledby="style-heading">
+            <div class="step-heading">
+              <span class="step-number">01</span>
+              <div>
+                <p class="section-label">Choose a format</p>
+                <h2 id="style-heading">Poll style</h2>
+              </div>
+            </div>
+            <div class="style-grid" id="style-grid" role="radiogroup" aria-label="Poll style"></div>
+          </section>
+
+          <section class="creator-card" aria-labelledby="content-heading">
+            <div class="step-heading">
+              <span class="step-number">02</span>
+              <div>
+                <p class="section-label">Write the decision</p>
+                <h2 id="content-heading">Question and choices</h2>
+              </div>
+            </div>
+
+            <label class="field full-field">
+              <span class="field-label">Poll question</span>
+              <input id="question-input" name="question" type="text" maxlength="180" placeholder="What should the Toxic Network decide?" autocomplete="off" required />
+              <span class="field-help"><span id="question-count">0</span>/180 characters</span>
+            </label>
+
+            <div id="regular-option-section">
+              <div class="option-heading">
+                <div>
+                  <span class="field-label">Answer choices</span>
+                  <span class="field-help" id="option-help">Enter the choices viewers can select.</span>
+                </div>
+                <button class="secondary-button compact-button" id="add-option-button" type="button">Add choice</button>
+              </div>
+              <div class="option-editor" id="option-editor"></div>
+            </div>
+
+            <div class="game-library-picker" id="game-library-picker" hidden>
+              <div class="game-library-toolbar">
+                <div>
+                  <span class="field-label">Game library</span>
+                  <span class="field-help"><strong id="selected-game-count">92</strong> games selected for the 2.5-hour vote.</span>
+                </div>
+                <label class="game-search">
+                  <span class="sr-only">Search games</span>
+                  <input id="game-search-input" type="text" placeholder="Search your games..." autocomplete="off" />
+                </label>
+                <div class="game-select-actions">
+                  <button class="secondary-button compact-button" id="select-all-games" type="button">Select all</button>
+                  <button class="secondary-button compact-button" id="clear-games" type="button">Clear</button>
+                </div>
+              </div>
+              <div class="game-picker-grid" id="game-picker-grid"></div>
+            </div>
+          </section>
+
+          <section class="creator-card" aria-labelledby="settings-heading">
+            <div class="step-heading">
+              <span class="step-number">03</span>
+              <div>
+                <p class="section-label">Control the release</p>
+                <h2 id="settings-heading">Timer and results</h2>
+              </div>
+            </div>
+
+            <div class="settings-grid">
+              <fieldset class="setting-group" id="duration-setting">
+                <legend>Voting time</legend>
+                <div class="choice-chips" id="duration-options">
+                  <label><input type="radio" name="duration" value="30" /><span>30 sec</span></label>
+                  <label><input type="radio" name="duration" value="60" checked /><span>1 min</span></label>
+                  <label><input type="radio" name="duration" value="120" /><span>2 min</span></label>
+                  <label><input type="radio" name="duration" value="180" /><span>3 min</span></label>
+                  <label><input type="radio" name="duration" value="300" /><span>5 min</span></label>
+                  <label><input type="radio" name="duration" value="600" /><span>10 min</span></label>
+                </div>
+                <div class="game-duration-note" id="game-duration-note" hidden>
+                  <strong>2 hours 30 minutes</strong>
+                  <span>Game Library polls always use the extended timer and create a Twitch reminder every 30 minutes.</span>
+                </div>
+              </fieldset>
+
+              <fieldset class="setting-group">
+                <legend>Show percentages</legend>
+                <div class="result-modes">
+                  <label>
+                    <input type="radio" name="resultsMode" value="live" />
+                    <span><strong>Live</strong><small>Everyone sees totals immediately.</small></span>
+                  </label>
+                  <label>
+                    <input type="radio" name="resultsMode" value="after_vote" checked />
+                    <span><strong>After voting</strong><small>Results unlock after a viewer votes.</small></span>
+                  </label>
+                  <label>
+                    <input type="radio" name="resultsMode" value="after_close" />
+                    <span><strong>After closing</strong><small>Keep all percentages hidden until time ends.</small></span>
+                  </label>
+                </div>
+              </fieldset>
+            </div>
+          </section>
+
+          <section class="creator-card preview-card" aria-labelledby="preview-heading">
+            <div class="step-heading">
+              <span class="step-number">04</span>
+              <div>
+                <p class="section-label">Final check</p>
+                <h2 id="preview-heading">Viewer preview</h2>
+              </div>
+            </div>
+            <div class="poll-preview">
+              <div class="preview-meta">
+                <span id="preview-style">Multiple Choice</span>
+                <span id="preview-duration">1 minute</span>
+              </div>
+              <h3 id="preview-question">Your poll question will appear here.</h3>
+              <div class="preview-options" id="preview-options"></div>
+            </div>
+          </section>
+
+          <div class="form-status" id="form-status" aria-live="polite"></div>
+          <div class="release-bar">
+            <div>
+              <strong>Ready to release the poll?</strong>
+              <span>Streamer.bot will announce it to Twitch after the backend creates it.</span>
+            </div>
+            <button class="primary-button" id="open-poll-button" type="submit">Open Toxic Poll</button>
+          </div>
+        </form>
+
+        <section class="success-card" id="success-view" hidden aria-live="polite">
+          <div class="success-mark" aria-hidden="true">✓</div>
+          <p class="section-label">Poll released</p>
+          <h2>Your Toxic Poll is live</h2>
+          <p id="success-question"></p>
+          <div class="success-actions">
+            <a class="primary-button button-link" id="view-poll-link" href="index.html" target="_blank" rel="noopener">View public poll</a>
+            <button class="secondary-button compact-button" id="copy-link-button" type="button">Copy voting link</button>
+            <button class="secondary-button compact-button" id="create-another-button" type="button">Create another</button>
+          </div>
+        </section>
+      </div>
+
+      <footer>
+        <span>ThyToxicGamer Protected Poll Creator</span>
+        <span>Temporary links expire and can only be exchanged once.</span>
+      </footer>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="games.js"></script>
+    <script src="admin.js"></script>
+  </body>
+</html>
