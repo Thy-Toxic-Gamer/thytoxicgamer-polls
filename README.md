@@ -10,10 +10,9 @@ https://thy-toxic-gamer.github.io/thytoxicgamer-polls/
 
 The public page supports:
 
-- Up to two active polls at once
+- Up to three active polls at once
 - A poll switcher when more than one poll is live
-- Two to six choices for standard polls
-- A dedicated Game Library poll with up to 100 game tiles
+- Two to ten answers per poll
 - One vote per browser for each poll
 - Live, after-voting, or after-closing percentages
 - Timers, final winners, ties, cancelled polls, no-vote results, errors, and mobile layouts
@@ -22,7 +21,7 @@ Public demo:
 
 https://thy-toxic-gamer.github.io/thytoxicgamer-polls/?demo=1
 
-The demo includes a standard poll and a Game Library poll so the multi-poll switcher can be tested.
+The demo includes three standard polls so the multi-poll switcher can be tested at the full supported limit.
 
 ## Protected Poll Creator
 
@@ -36,33 +35,22 @@ Creator demo:
 
 https://thy-toxic-gamer.github.io/thytoxicgamer-polls/admin.html?demo=1
 
-The creator includes nine poll styles:
+The creator now uses one simple poll format:
 
-1. This or That
-2. Yes or No
-3. Yes / No / Maybe
-4. Multiple Choice
-5. Rating Scale
-6. Agreement Scale
-7. Priority Vote
-8. Reaction Vote
-9. Game Library
+- Type any poll question
+- Start with two answers
+- Add answers as needed, up to ten total
+- Remove answers while keeping at least two
+- Choose a voting time from 30 seconds up to 30 minutes
+- Choose when percentages become visible: live, after voting, or after closing
 
-Standard polls can run from 30 seconds through 10 minutes. Game Library polls always run for 2 hours and 30 minutes.
+## Three simultaneous polls
 
-## Game Library poll
+Up to three polls can be active at the same time. When three polls are already live, the creator blocks another poll until one closes or is cancelled.
 
-The Game Library section includes all 92 games supplied for the project. The broadcaster or moderator can search the catalog, select all games, clear the selection, or pick a smaller group.
+The Cloudflare Worker must also have `MAX_ACTIVE_POLLS=3` so the backend enforces the same limit.
 
-The tiles use original ThyToxicGamer-style abstract artwork and game initials with the title below. This keeps the directory visually consistent without copying game cover art. If licensed game artwork is provided later, the data model can be extended to use those approved images.
 
-While a Game Library poll is open, the backend creates a reminder event every 30 minutes. Streamer.bot will post the voting link from each reminder event and acknowledge the event only after the Twitch message succeeds.
-
-## Two simultaneous polls
-
-The default maximum is two active polls. The limit can be changed from one through four with the MAX_ACTIVE_POLLS Worker setting.
-
-When the maximum is reached, opening another poll is blocked until an active poll closes or is cancelled.
 
 ## Temporary creator access
 
@@ -96,7 +84,6 @@ Upload these flat files to the repository root:
 - admin.css
 - admin.js
 - config.js
-- games.js
 - toxic-poll-banner.webp
 - toxic-poll-background.webp
 - toxic-poll-banner.png

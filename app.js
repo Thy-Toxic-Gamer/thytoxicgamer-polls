@@ -40,7 +40,6 @@ const state = {
   submitting: false,
   pendingOptionId: "",
   demoCloseAt: new Date(Date.now() + 120000).toISOString(),
-  demoGameCloseAt: new Date(Date.now() + 9000000).toISOString(),
 };
 
 function getViewerId() {
@@ -74,40 +73,49 @@ function withDemoVote(pollId, options) {
 }
 
 function getDemoPolls() {
-  const communityOptions = withDemoVote("demo-toxic-poll", [
-    { id: "ffxiv", label: "Final Fantasy XIV", votes: 7 },
-    { id: "doom", label: "DOOM", votes: 5 },
-    { id: "enshrouded", label: "Enshrouded", votes: 3 },
+  const pollOneOptions = withDemoVote("demo-toxic-poll-1", [
+    { id: "option-a", label: "Option A", votes: 7 },
+    { id: "option-b", label: "Option B", votes: 5 },
+    { id: "option-c", label: "Option C", votes: 3 },
   ]);
-  const gameOptions = withDemoVote("demo-game-poll", [
-    { id: "hades", label: "Hades II", tileCode: "HII", tileVariant: 1, votes: 4 },
-    { id: "poe2", label: "Path of Exile 2", tileCode: "POE", tileVariant: 2, votes: 3 },
-    { id: "valheim", label: "Valheim", tileCode: "V", tileVariant: 3, votes: 2 },
-    { id: "warframe", label: "Warframe", tileCode: "W", tileVariant: 4, votes: 2 },
-    { id: "palworld", label: "Palworld", tileCode: "P", tileVariant: 5, votes: 1 },
-    { id: "witcher", label: "The Witcher 3: Wild Hunt", tileCode: "TW3", tileVariant: 6, votes: 1 },
-    { id: "darktide", label: "Warhammer 40,000: Darktide", tileCode: "W40", tileVariant: 7, votes: 1 },
-    { id: "ark", label: "ARK: Survival Ascended", tileCode: "ASA", tileVariant: 8, votes: 1 },
+  const pollTwoOptions = withDemoVote("demo-toxic-poll-2", [
+    { id: "yes", label: "Yes", votes: 8 },
+    { id: "no", label: "No", votes: 4 },
+  ]);
+  const pollThreeOptions = withDemoVote("demo-toxic-poll-3", [
+    { id: "one", label: "First choice", votes: 4 },
+    { id: "two", label: "Second choice", votes: 3 },
+    { id: "three", label: "Third choice", votes: 2 },
+    { id: "four", label: "Fourth choice", votes: 1 },
   ]);
 
   return [
     normalizePoll({
-      id: "demo-toxic-poll",
-      question: "Which game should contaminate the stream next?",
+      id: "demo-toxic-poll-1",
+      question: "What should the community decide?",
       pollStyle: "multiple",
       resultsMode: "after_vote",
       status: Date.now() >= Date.parse(state.demoCloseAt) ? "closed" : "active",
       closesAt: state.demoCloseAt,
-      options: communityOptions,
+      options: pollOneOptions,
     }),
     normalizePoll({
-      id: "demo-game-poll",
-      question: "What should ThyToxicGamer play during the next community stream?",
-      pollStyle: "game_library",
-      resultsMode: "after_vote",
-      status: Date.now() >= Date.parse(state.demoGameCloseAt) ? "closed" : "active",
-      closesAt: state.demoGameCloseAt,
-      options: gameOptions,
+      id: "demo-toxic-poll-2",
+      question: "Should we run another community event?",
+      pollStyle: "multiple",
+      resultsMode: "live",
+      status: Date.now() >= Date.parse(state.demoCloseAt) ? "closed" : "active",
+      closesAt: state.demoCloseAt,
+      options: pollTwoOptions,
+    }),
+    normalizePoll({
+      id: "demo-toxic-poll-3",
+      question: "Which option gets the next vote?",
+      pollStyle: "multiple",
+      resultsMode: "after_close",
+      status: Date.now() >= Date.parse(state.demoCloseAt) ? "closed" : "active",
+      closesAt: state.demoCloseAt,
+      options: pollThreeOptions,
     }),
   ];
 }
@@ -204,7 +212,7 @@ function renderSwitcher() {
     button.className = "poll-tab";
     button.setAttribute("role", "tab");
     button.setAttribute("aria-selected", String(poll.id === state.selectedPollId));
-    const prefix = poll.pollStyle === "game_library" ? "Game vote" : `Poll ${index + 1}`;
+    const prefix = `Poll ${index + 1}`;
     const shortQuestion = poll.question.length > 44 ? `${poll.question.slice(0, 41)}...` : poll.question;
     button.textContent = `${prefix}: ${shortQuestion}`;
     button.addEventListener("click", () => selectPoll(poll.id));
@@ -264,7 +272,6 @@ function renderPoll(poll) {
     !isOpen ||
     state.poll.resultsMode === "live" ||
     (state.poll.resultsMode === "after_vote" && Boolean(storedVote));
-  const isGamePoll = state.poll.pollStyle === "game_library";
   const selectedOption = storedVote
     ? state.poll.options.find((option) => option.id === storedVote)
     : null;
@@ -276,9 +283,7 @@ function renderPoll(poll) {
   elements.pollStatus.textContent = isOpen ? "Poll open" : state.poll.status === "cancelled" ? "Poll cancelled" : "Poll closed";
   elements.pollStatus.dataset.status = isOpen ? "active" : state.poll.status;
   elements.pollInstruction.textContent = isOpen
-    ? isGamePoll
-      ? "Choose one game. Your vote is final."
-      : "Choose one option. Your vote is final."
+    ? "Choose one option. Your vote is final."
     : "Voting has ended. Final results are below.";
   elements.pollInstruction.hidden = voteComplete;
 
