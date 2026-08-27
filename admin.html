@@ -102,25 +102,6 @@
               <div class="option-editor" id="option-editor"></div>
             </div>
 
-            <div class="game-library-picker" id="game-library-picker" hidden>
-              <div class="game-library-toolbar">
-                <div>
-                  <span class="field-label">Game library</span>
-                  <span class="field-help"><strong id="selected-game-count">92</strong> games selected for the 2.5-hour vote.</span>
-                </div>
-                <label class="game-search">
-                  <span class="sr-only">Search games</span>
-                  <input id="game-search-input" type="text" placeholder="Search your games..." autocomplete="off" />
-                </label>
-                <div class="game-select-actions">
-                  <button class="secondary-button compact-button" id="select-all-games" type="button">Select all</button>
-                  <button class="secondary-button compact-button" id="clear-games" type="button">Clear</button>
-                </div>
-              </div>
-              <div class="game-picker-grid" id="game-picker-grid"></div>
-            </div>
-          </section>
-
           <section class="creator-card" aria-labelledby="settings-heading">
             <div class="step-heading">
               <span class="step-number">03</span>
@@ -140,10 +121,6 @@
                   <label><input type="radio" name="duration" value="180" /><span>3 min</span></label>
                   <label><input type="radio" name="duration" value="300" /><span>5 min</span></label>
                   <label><input type="radio" name="duration" value="600" /><span>10 min</span></label>
-                </div>
-                <div class="game-duration-note" id="game-duration-note" hidden>
-                  <strong>2 hours 30 minutes</strong>
-                  <span>Game Library polls always use the extended timer and create a Twitch reminder every 30 minutes.</span>
                 </div>
               </fieldset>
 
@@ -215,7 +192,6 @@
     </main>
 
     <script src="config.js"></script>
-    <script src="games.js"></script>
     <script src="admin.js"></script>
   </body>
 </html>
