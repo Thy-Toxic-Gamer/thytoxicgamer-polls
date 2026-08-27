@@ -2,15 +2,87 @@ const config = window.TOXIC_POLL_CONFIG;
 const gameCatalog = window.TOXIC_GAME_CATALOG || [];
 
 const pollStyles = Object.freeze({
-  question: {
-    code: "Q",
-    label: "Ask a Question",
-    description: "Ask a single question and allow viewers to pick 1 answer.",
-    options: ["Choice 1", "Choice 2"],
+  versus: {
+    code: "VS",
+    label: "This or That",
+    description: "A direct two-choice showdown.",
+    options: ["Option A", "Option B"],
     min: 2,
-    max: 5,
+    max: 2,
     editable: true,
-  }
+  },
+  yes_no: {
+    code: "Y/N",
+    label: "Yes or No",
+    description: "A fast decision with two fixed answers.",
+    options: ["Yes", "No"],
+    min: 2,
+    max: 2,
+    editable: false,
+  },
+  yes_no_maybe: {
+    code: "YN?",
+    label: "Yes / No / Maybe",
+    description: "Adds a middle option for undecided viewers.",
+    options: ["Yes", "No", "Maybe"],
+    min: 3,
+    max: 3,
+    editable: false,
+  },
+  multiple: {
+    code: "3-6",
+    label: "Multiple Choice",
+    description: "Create three to six custom answers.",
+    options: ["Choice 1", "Choice 2", "Choice 3"],
+    min: 3,
+    max: 6,
+    editable: true,
+  },
+  rating: {
+    code: "1-5",
+    label: "Rating Scale",
+    description: "Let viewers score something from one to five.",
+    options: ["1", "2", "3", "4", "5"],
+    min: 5,
+    max: 5,
+    editable: false,
+  },
+  agreement: {
+    code: "A-D",
+    label: "Agreement Scale",
+    description: "Measure how strongly viewers agree.",
+    options: ["Strongly disagree", "Disagree", "Neutral", "Agree", "Strongly agree"],
+    min: 5,
+    max: 5,
+    editable: false,
+  },
+  priority: {
+    code: "P1",
+    label: "Priority Vote",
+    description: "Choose how urgent or important something is.",
+    options: ["Low", "Medium", "High", "Critical"],
+    min: 4,
+    max: 4,
+    editable: false,
+  },
+  reaction: {
+    code: "RXN",
+    label: "Reaction Vote",
+    description: "Capture the community's overall reaction.",
+    options: ["Love it", "Like it", "Neutral", "Not for me"],
+    min: 4,
+    max: 4,
+    editable: false,
+  },
+  game_library: {
+    code: "GAME",
+    label: "Game Library",
+    description: "A 2.5-hour vote using your full game collection.",
+    options: [],
+    min: 2,
+    max: 100,
+    editable: false,
+  },
 });
 
 const elements = {
@@ -54,8 +126,8 @@ const elements = {
 };
 
 const state = {
-  style: "question",
-  options: [...pollStyles.question.options],
+  style: "multiple",
+  options: [...pollStyles.multiple.options],
   sessionToken: "",
   adminName: "",
   currentPolls: [],
@@ -162,7 +234,7 @@ function finishAuthorization() {
   setPill("live", state.adminName || "Authorized");
   renderStyleGrid();
   state.selectedGames = new Set(gameCatalog.map((game) => game.id));
-  applyStyle("question");
+  applyStyle("multiple");
   loadCurrentPoll();
 }
 
@@ -523,7 +595,7 @@ elements.createAnother.addEventListener("click", () => {
   elements.question.value = "";
   elements.questionCount.textContent = "0";
   state.selectedGames = new Set(gameCatalog.map((game) => game.id));
-  applyStyle("question");
+  applyStyle("multiple");
   updatePreview();
   window.scrollTo({ top: elements.form.offsetTop - 18, behavior: "smooth" });
 });
