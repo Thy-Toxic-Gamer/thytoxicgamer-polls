@@ -99,9 +99,9 @@ Backend source:
 - worker/index.js
 - worker/schema.sql
 - worker/migration-v2.sql
-- wrangler.toml
+- wrangler.toml.example
 
-For a new database, run worker/schema.sql. If version 1 was already initialized, run worker/migration-v2.sql exactly once instead.
+For a new database, run worker/schema.sql. If version 1 was already initialized, run worker/migration-v2.sql exactly once instead. Copy wrangler.toml.example to wrangler.toml and replace the D1 placeholders before deploying with Wrangler.
 
 Configure a strong ADMIN_KEY as a Cloudflare Worker secret. Never place it in config.js, wrangler.toml, chat messages, screenshots, or GitHub.
 

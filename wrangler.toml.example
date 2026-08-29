@@ -1,0 +1,16 @@
+name = "thytoxicgamer-polls-api"
+main = "worker/index.js"
+compatibility_date = "2026-08-27"
+
+[vars]
+MAX_ACTIVE_POLLS = "3"
+POLL_ADMIN_URL = "https://thy-toxic-gamer.github.io/thytoxicgamer-polls/admin.html"
+PUBLIC_POLL_URL = "https://thy-toxic-gamer.github.io/thytoxicgamer-polls/"
+SITE_ORIGIN = "https://thy-toxic-gamer.github.io"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "REPLACE_WITH_D1_DATABASE_NAME"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+# Configure ADMIN_KEY as a Worker secret. Never write its value in this file.
