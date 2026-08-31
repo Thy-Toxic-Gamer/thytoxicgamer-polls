@@ -18,7 +18,7 @@ export default {
         return json(
           {
             ok: true,
-            service: "ThyToxicGamer Poll API",
+            service: "⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆ Poll API",
             version: 2,
           },
           200,
@@ -366,7 +366,7 @@ async function createPoll(request, env, admin) {
   const body = await readJson(request);
   const question = cleanText(body.question, 180);
   const createdBy = cleanText(
-    body.createdBy || admin.adminName || "ThyToxicGamer",
+    body.createdBy || admin.adminName || "⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆",
     80
   );
 
@@ -915,19 +915,19 @@ function buildChatMessage(eventType, poll, env) {
     const votingUrl = pollUrl(publicUrl, poll.id);
 
     return truncateChatMessage(
-      `New Toxic Poll: ${poll.question} Vote before time runs out. Vote here: ${votingUrl}`
+      `New 𝐓☣︎𝐱𝐢c Poll: ${poll.question} Vote before time runs out. Vote here: ${votingUrl}`
     );
   }
 
   if (eventType === "poll_cancelled") {
     return truncateChatMessage(
-      `Toxic Poll cancelled: ${poll.question}`
+      `𝐓☣︎𝐱𝐢c Poll cancelled: ${poll.question}`
     );
   }
 
   if (!poll.totalVotes) {
     return truncateChatMessage(
-      `Toxic Poll closed with no votes: ${poll.question}`
+      `𝐓☣︎𝐱𝐢c Poll closed with no votes: ${poll.question}`
     );
   }
 

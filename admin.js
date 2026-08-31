@@ -266,7 +266,7 @@ async function openPoll(event) {
   } finally {
     state.submitting = false;
     elements.openPoll.disabled = false;
-    elements.openPoll.textContent = "Open Toxic Poll";
+    elements.openPoll.textContent = "Open 𝐓☣︎𝐱𝐢c Poll";
   }
 }
 
