@@ -1,6 +1,6 @@
 # ⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆ 𝐓☣︎𝐱𝐢c Poll Center
 
-Public voting and protected poll creation for the ⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆ community.
+Public voting and protected poll creation for  ⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆ community.
 
 ## Public voting page
 
