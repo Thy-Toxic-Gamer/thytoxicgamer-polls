@@ -116,6 +116,7 @@ Backend source:
 - `supabase/migrations/202609010003_service_role_grants.sql`
 - `supabase/migrations/202609010004_twitch_chat_delivery.sql`
 - `supabase/functions/poll-center-api/index.ts`
+- `supabase/functions/poll-archive-api/index.ts`
 
 The migrations use isolated `poll_*` objects inside the shared Polls | Appeals Center project. Row Level Security denies direct browser writes. The Edge Function uses server-only Supabase credentials and validates every staff action.
 
