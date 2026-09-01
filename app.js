@@ -148,12 +148,13 @@ function normalizePoll(poll) {
 async function apiRequest(path, options = {}) {
   const baseUrl = config.apiBaseUrl.replace(/\/$/, "");
   if (!baseUrl) return null;
+  const headers = { ...(options.headers || {}) };
+  if (options.body != null && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
   const response = await fetch(`${baseUrl}${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
+    headers,
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
