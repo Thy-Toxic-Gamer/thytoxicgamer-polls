@@ -2,6 +2,10 @@
 
 Public voting and protected poll creation for  ⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆ community.
 
+## Current public release
+
+**Ver. 1.0 — Unified Central Command release — September 1, 2026**
+
 ## Public voting page
 
 Website:
