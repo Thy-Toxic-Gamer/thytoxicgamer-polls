@@ -94,6 +94,34 @@ h1 {
   color: var(--muted);
 }
 
+
+.central-command-return {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 9px 13px;
+  border: 1px solid rgba(134, 255, 20, 0.36);
+  border-radius: 999px;
+  color: var(--toxic);
+  background: rgba(134, 255, 20, 0.06);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.central-command-return:hover,
+.central-command-return:focus-visible {
+  border-color: var(--toxic);
+  color: #071006;
+  background: var(--toxic);
+}
+
 .connection-pill {
   display: inline-flex;
   align-items: center;
