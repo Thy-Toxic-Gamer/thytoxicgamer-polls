@@ -20,7 +20,10 @@ const elements = {
   twitchConnectionBadge: document.querySelector("#twitch-connection-badge"),
   connectTwitch: document.querySelector("#connect-twitch-button"),
   currentPollList: document.querySelector("#current-poll-list"), pollHistory: document.querySelector("#poll-history"),
-  historyList: document.querySelector("#history-list"), form: document.querySelector("#creator-form"),
+  historyList: document.querySelector("#history-list"), archiveSearch: document.querySelector("#archive-search"),
+  archiveStatus: document.querySelector("#archive-status"), archiveSummary: document.querySelector("#archive-summary"),
+  archiveEmpty: document.querySelector("#archive-empty"), archiveMore: document.querySelector("#archive-more"),
+  form: document.querySelector("#creator-form"),
   question: document.querySelector("#question-input"), questionCount: document.querySelector("#question-count"),
   optionEditor: document.querySelector("#option-editor"), addOption: document.querySelector("#add-option-button"),
   previewDuration: document.querySelector("#preview-duration"), previewQuestion: document.querySelector("#preview-question"),
@@ -44,7 +47,8 @@ const elements = {
 
 const state = {
   options: ["Choice 1", "Choice 2"], session: null, adminName: "", role: "",
-  currentPolls: [], recentPolls: [], countdown: null, submitting: false,
+  currentPolls: [], archivePolls: [], archiveTotal: 0, archiveLoading: false, archiveError: "",
+  archiveRequestId: 0, countdown: null, submitting: false,
   editingPoll: null, editOptions: [], testData: null, testSelected: "",
   testEndsAt: 0, testCountdown: null, twitchStatus: null,
 };
@@ -169,6 +173,7 @@ function finishAuthorization() {
   updatePreview();
   loadTwitchStatus();
   loadAdminPolls();
+  loadPollArchive(true);
 }
 
 async function loadTwitchStatus() {
@@ -382,17 +387,84 @@ function showCurrentPolls(polls) {
   if (activePolls.length) state.countdown = setInterval(update, 250);
 }
 
-function showHistory(polls) {
-  state.recentPolls = polls || [];
-  elements.pollHistory.hidden = !state.recentPolls.length;
+function archiveOutcome(poll) {
+  if (poll.status === "cancelled") return "Cancelled";
+  if (!poll.totalVotes) return "No votes";
+  const highestVotes = Math.max(...poll.options.map((option) => Number(option.votes || 0)));
+  const winners = poll.options.filter((option) => Number(option.votes || 0) === highestVotes);
+  return winners.length > 1
+    ? `Tie: ${winners.map((winner) => winner.label).join(" / ")}`
+    : `Winner: ${winners[0].label}`;
+}
+
+function renderPollArchive() {
   elements.historyList.replaceChildren();
-  state.recentPolls.forEach((poll) => {
-    const item = document.createElement("article");
-    item.className = "history-item";
-    const date = new Date(poll.createdAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-    item.innerHTML = `<div><span class="history-status" data-status="${poll.status}">${escapeHtml(poll.status)}</span><strong>${escapeHtml(poll.question)}</strong></div><span>${poll.totalVotes} votes · ${escapeHtml(date)}</span>`;
+  elements.archiveEmpty.hidden = state.archiveLoading || state.archivePolls.length > 0;
+  elements.archiveMore.hidden = state.archiveLoading || state.archivePolls.length >= state.archiveTotal;
+  elements.archiveSummary.textContent = state.archiveError
+    ? state.archiveError
+    : state.archiveLoading && !state.archivePolls.length
+    ? "Loading archived polls..."
+    : `Showing ${state.archivePolls.length} of ${state.archiveTotal} archived poll${state.archiveTotal === 1 ? "" : "s"}.`;
+
+  state.archivePolls.forEach((poll) => {
+    const item = document.createElement("details");
+    item.className = "history-item archive-item";
+    const date = new Date(poll.updatedAt || poll.createdAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+    const outcome = archiveOutcome(poll);
+    const options = poll.options.map((option) => `
+      <div class="archive-result-row">
+        <span>${escapeHtml(option.label)}</span>
+        <strong>${Number(option.votes || 0)} · ${Number(option.percentage || 0)}%</strong>
+      </div>`).join("");
+    item.innerHTML = `
+      <summary>
+        <div>
+          <span class="history-status" data-status="${escapeHtml(poll.status)}">${poll.status === "closed" ? "Completed" : "Cancelled"}</span>
+          <strong>${escapeHtml(poll.question)}</strong>
+          <small>${escapeHtml(outcome)}</small>
+        </div>
+        <span>${poll.totalVotes} vote${poll.totalVotes === 1 ? "" : "s"} · ${escapeHtml(date)}</span>
+      </summary>
+      <div class="archive-results" aria-label="Final poll results">${options}</div>`;
     elements.historyList.append(item);
   });
+}
+
+async function loadPollArchive(reset = false) {
+  if (config.demoMode) {
+    state.archiveLoading = false;
+    state.archiveError = "Demo mode does not load saved poll history.";
+    renderPollArchive();
+    return;
+  }
+  const requestId = ++state.archiveRequestId;
+  state.archiveLoading = true;
+  state.archiveError = "";
+  if (reset) {
+    state.archivePolls = [];
+    state.archiveTotal = 0;
+  }
+  renderPollArchive();
+  const params = new URLSearchParams({
+    status: elements.archiveStatus.value,
+    search: elements.archiveSearch.value.trim(),
+    offset: String(reset ? 0 : state.archivePolls.length),
+    limit: "12",
+  });
+  try {
+    const response = await apiRequest(`/api/admin/polls/archive?${params}`);
+    if (requestId !== state.archiveRequestId) return;
+    state.archivePolls = reset ? response.polls : [...state.archivePolls, ...response.polls];
+    state.archiveTotal = Number(response.total || 0);
+  } catch (error) {
+    if (requestId === state.archiveRequestId) state.archiveError = error.message;
+  } finally {
+    if (requestId === state.archiveRequestId) {
+      state.archiveLoading = false;
+      renderPollArchive();
+    }
+  }
 }
 
 async function loadAdminPolls() {
@@ -400,7 +472,6 @@ async function loadAdminPolls() {
   try {
     const response = await apiRequest("/api/admin/polls");
     showCurrentPolls(response.active);
-    showHistory(response.recent);
   } catch (error) { elements.formStatus.textContent = error.message; }
 }
 
@@ -425,7 +496,7 @@ async function confirmStatusChange(poll, action) {
   if (!confirmed) return;
   try {
     await apiRequest(`/api/polls/${encodeURIComponent(poll.id)}/${action}`, { method: "POST" });
-    await loadAdminPolls();
+    await Promise.all([loadAdminPolls(), loadPollArchive(true)]);
   } catch (error) { elements.formStatus.textContent = error.message; }
 }
 
@@ -573,6 +644,13 @@ function escapeHtml(value) {
 elements.ownerSignIn.addEventListener("click", signInWithTwitch);
 elements.signOut.addEventListener("click", signOut);
 elements.connectTwitch.addEventListener("click", connectTwitchBot);
+let archiveSearchTimer = 0;
+elements.archiveSearch.addEventListener("input", () => {
+  clearTimeout(archiveSearchTimer);
+  archiveSearchTimer = setTimeout(() => loadPollArchive(true), 300);
+});
+elements.archiveStatus.addEventListener("change", () => loadPollArchive(true));
+elements.archiveMore.addEventListener("click", () => loadPollArchive(false));
 elements.question.addEventListener("input", () => { elements.questionCount.textContent = String(elements.question.value.length); updatePreview(); });
 elements.addOption.addEventListener("click", () => { if (state.options.length < MAX_CHOICES) { state.options.push(`Choice ${state.options.length + 1}`); renderOptions(); updatePreview(); } });
 document.querySelectorAll('input[name="duration"]').forEach((input) => input.addEventListener("change", updatePreview));
