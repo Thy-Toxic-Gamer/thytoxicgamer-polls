@@ -9,41 +9,38 @@
     <meta property="og:description" content="Choose your answer before the contamination clock reaches zero." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://thy-toxic-gamer.github.io/thytoxicgamer-polls/" />
-    <meta property="og:image" content="https://thy-toxic-gamer.github.io/thytoxicgamer-polls/toxic-poll-banner.png" />
+    <meta property="og:image" content="https://thy-toxic-gamer.github.io/thytoxicgamer-polls/assets/poll-center-hero.webp" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆ 𝐓☣︎𝐱𝐢c Poll Center" />
     <meta name="twitter:description" content="Vote in the active 𝐓☣︎𝐱𝐢c Poll." />
-    <meta name="twitter:image" content="https://thy-toxic-gamer.github.io/thytoxicgamer-polls/toxic-poll-banner.png" />
+    <meta name="twitter:image" content="https://thy-toxic-gamer.github.io/thytoxicgamer-polls/assets/poll-center-hero.webp" />
     <title>⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆ 𝐓☣︎𝐱𝐢c Poll Center</title>
-    <link rel="preload" as="image" href="toxic-poll-banner.webp" fetchpriority="high" />
-    <link rel="stylesheet" href="styles.css?release=1.0-nav" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,700;1,800;1,900&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link rel="preload" as="image" href="assets/poll-center-hero.webp" fetchpriority="high" />
+    <link rel="stylesheet" href="styles.css?release=1.0-visual" />
   </head>
   <body>
     <main class="site-shell">
-      <header class="site-header">
-        <div class="brand-copy">
-          <p class="eyebrow">⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆ · VER. 1.0</p>
-          <h1>𝐓☣︎𝐱𝐢c Poll Center</h1>
-          <p class="intro">Choose your answer before the contamination clock reaches zero.</p>
-        </div>
-        <a class="central-command-return" href="https://thy-toxic-gamer.github.io/central-command/"><span aria-hidden="true">←</span> Central Command</a>
-        <div class="connection-pill" id="connection-pill" data-state="waiting">
-          <span class="connection-dot" aria-hidden="true"></span>
-          <span id="connection-text">Awaiting poll</span>
-        </div>
+      <header class="site-header ecosystem-header">
+        <a class="ecosystem-brand" href="#top" aria-label="Poll Center home"><strong>⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆</strong><small>POLL CENTER</small></a>
+        <nav class="ecosystem-nav" aria-label="Primary navigation"><a href="#polls">Active Polls</a><a href="admin.html">Poll Creator</a><a class="hub-link" href="https://thy-toxic-gamer.github.io/central-command/">Central Command <span aria-hidden="true">↗</span></a></nav>
       </header>
 
-      <figure class="site-banner">
-        <img
-          src="toxic-poll-banner.webp"
-          width="1935"
-          height="813"
-          alt="Armored toxic wolf skull between a cracked biohazard symbol and a command terminal"
-          fetchpriority="high"
-        />
-      </figure>
+      <section class="ecosystem-hero poll-hero" id="top" aria-labelledby="poll-hero-title">
+        <div class="ecosystem-hero-art" aria-hidden="true"></div>
+        <div class="ecosystem-hero-content">
+          <div class="connection-pill ecosystem-status" id="connection-pill" data-state="waiting"><span class="connection-dot" aria-hidden="true"></span><span id="connection-text">Awaiting poll</span><b>Ver. 1.0</b></div>
+          <p class="ecosystem-kicker">THE COMMUNITY DECIDES</p>
+          <h1 id="poll-hero-title">POLL<br><em>CENTER</em></h1>
+          <p>Enter the live decision chamber, cast your choice, and watch the 𝐓☣︎𝐱𝐢c Network results take shape in real time.</p>
+          <div class="ecosystem-actions"><a href="#polls">Open Current Poll <span aria-hidden="true">↓</span></a><a href="admin.html">Poll Creator <span aria-hidden="true">↗</span></a></div>
+        </div>
+        <div class="ecosystem-rail" aria-hidden="true"><span>CHOOSE</span><i></i><span>VOTE</span><i></i><span>COUNTDOWN</span><i></i><span>RESULTS</span><i></i><span>COMMUNITY</span></div>
+      </section>
 
-      <section class="poll-card" aria-labelledby="poll-heading">
+      <section class="poll-card" id="polls" aria-labelledby="poll-heading">
         <div class="poll-toolbar">
           <div>
             <p class="section-label">Community decision</p>
