@@ -916,11 +916,14 @@ footer {
 
 /* Ver. 1.0 ecosystem shell — Central Command scale, type and navigation */
 .site-shell { width: min(calc(100% - 28px),1280px); padding-top: 0; }
-.ecosystem-header { min-height: 84px; padding: 0; border: 0; border-bottom: 1px solid rgba(255,255,255,.08); border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
-.ecosystem-brand { display: grid; color: var(--text); line-height: 1; text-decoration: none; }
+.ecosystem-header { min-height: 84px; display:flex; align-items:center; justify-content:space-between; padding: 0; border: 0; border-bottom: 1px solid rgba(255,255,255,.08); border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+.ecosystem-brand { display: grid; color: var(--text); line-height: 1; }
+.ecosystem-brand-home { color:inherit; text-decoration:none; }
 .ecosystem-brand strong { font: italic 800 18px/1 "Barlow Condensed",Impact,sans-serif; letter-spacing: .055em; }
-.ecosystem-brand small { margin-top: 5px; color: var(--toxic); font-size: 9px; font-weight: 800; letter-spacing: .22em; }
-.ecosystem-nav { display: flex; align-items: center; gap: 28px; }
+.ecosystem-brand small { display:flex; align-items:center; gap:.7em; margin-top: 5px; color: var(--toxic); font-size: 9px; font-weight: 800; letter-spacing: .22em; white-space:nowrap; }
+.ecosystem-brand .brand-hub { color:inherit; text-decoration:none; }
+.ecosystem-brand .brand-hub:hover,.ecosystem-brand .brand-hub:focus-visible { color:#eef3ef; }
+.ecosystem-nav { display: flex; align-items: center; gap: 28px; margin-left:auto; }
 .ecosystem-nav a { color: #c4cbc6; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; transition: color .2s,border-color .2s,background .2s; }
 .ecosystem-nav a:hover,.ecosystem-nav a:focus-visible,.ecosystem-nav a[aria-current="page"] { color: #c4ff36; }
 .ecosystem-nav .hub-link { padding: 10px 13px; border: 1px solid rgba(255,255,255,.18); color: #dbe3dd; background: rgba(5,8,6,.35); }
