@@ -50,27 +50,27 @@ export default {
 
     if (request.method === "GET" && path === "/api/admin/polls") {
       await requireStaff(request);
-      return getAdminPolls(request);
+      return await getAdminPolls(request);
     }
 
     if (request.method === "GET" && path === "/api/polls/active") {
-      return getActivePolls(request);
+      return await getActivePolls(request);
     }
 
     if (request.method === "POST" && path === "/api/polls") {
       const staff = await requireStaff(request);
-      return createPoll(request, staff);
+      return await createPoll(request, staff);
     }
 
     if (request.method === "GET" && path === "/api/events/pending") {
       requireIntegration(request);
-      return getPendingEvents(request);
+      return await getPendingEvents(request);
     }
 
     const ackMatch = path.match(/^\/api\/events\/(\d+)\/ack$/);
     if (request.method === "POST" && ackMatch) {
       requireIntegration(request);
-      return acknowledgeEvent(request, Number(ackMatch[1]));
+      return await acknowledgeEvent(request, Number(ackMatch[1]));
     }
 
     const resultMatch = path.match(/^\/api\/polls\/([0-9a-f-]+)\/results$/i);
@@ -83,19 +83,19 @@ export default {
 
     const voteMatch = path.match(/^\/api\/polls\/([0-9a-f-]+)\/votes$/i);
     if (request.method === "POST" && voteMatch) {
-      return submitVote(request, voteMatch[1]);
+      return await submitVote(request, voteMatch[1]);
     }
 
     const updateMatch = path.match(/^\/api\/polls\/([0-9a-f-]+)\/update$/i);
     if (request.method === "POST" && updateMatch) {
       const staff = await requireStaff(request);
-      return updatePoll(request, updateMatch[1], staff);
+      return await updatePoll(request, updateMatch[1], staff);
     }
 
     const statusMatch = path.match(/^\/api\/polls\/([0-9a-f-]+)\/(close|cancel)$/i);
     if (request.method === "POST" && statusMatch) {
       const staff = await requireStaff(request);
-      return changePollStatus(request, statusMatch[1], statusMatch[2], staff);
+      return await changePollStatus(request, statusMatch[1], statusMatch[2], staff);
     }
 
     throw new ApiError("not_found", "Route not found.", 404);
@@ -163,7 +163,7 @@ async function getActivePolls(request: Request) {
     .limit(3);
   if (error) throw error;
   if (!data?.length) {
-    throw new ApiError("no_poll", "There are no active polls.", 404);
+    return json(request, { polls: [], maxActivePolls: 3 });
   }
 
   const polls = [];
