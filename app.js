@@ -267,6 +267,7 @@ function returnToStreamAfterVote() {
 function renderPoll(poll) {
   state.poll = normalizePoll(poll);
   const isOpen = state.poll.status === "active" && Date.now() < Date.parse(state.poll.closesAt);
+  const isGamePoll = state.poll.pollStyle === "game";
   const storedVote = getStoredVote(state.poll.id);
   const showResults =
     !isOpen ||
