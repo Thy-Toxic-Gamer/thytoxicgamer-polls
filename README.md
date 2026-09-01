@@ -66,15 +66,26 @@ The Supabase database operation also enforces the same three-poll maximum.
 
 The GitHub Pages files contain only the public Supabase publishable key. They contain no service-role key, Twitch token, webhook, password, or permanent private credential.
 
-## Streamer.bot event routes
+## Direct Twitch announcements
 
-Streamer.bot uses:
+Poll Center does not require Streamer.bot for poll announcements. The Supabase Edge Function sends voting links directly through Twitch's Send Chat Message API as `ThyToxicBot`.
 
-- GET /api/events/pending
-- POST /api/events/{eventId}/ack
-- GET /api/polls/active
+- Twitch OAuth tokens are encrypted with Supabase Vault.
+- Access tokens refresh automatically using the stored rotating refresh token.
+- Each `poll_opened` event records pending, sent, or failed delivery state.
+- Poll Creator shows delivery health and includes a Resend to Twitch control.
+- A failed Twitch message never destroys or rolls back the live poll.
 
-Opening, reminding, closing, expiring, or cancelling a poll creates a pending event with a ready-to-post Twitch chat message.
+Required Edge Function secrets:
+
+- `TWITCH_CLIENT_ID`
+- `TWITCH_CLIENT_SECRET`
+- `TWITCH_BOT_LOGIN=thytoxicbot`
+- `TWITCH_BROADCASTER_LOGIN=thytoxicgamer`
+
+The Twitch application must allow this OAuth redirect URL:
+
+`https://hdwhhyrlmktiynyujozk.supabase.co/functions/v1/poll-center-api/api/twitch/callback`
 
 ## GitHub Pages files
 
@@ -101,10 +112,12 @@ Backend source:
 
 - `supabase/migrations/202609010001_poll_center.sql`
 - `supabase/migrations/202609010002_poll_operations.sql`
+- `supabase/migrations/202609010003_service_role_grants.sql`
+- `supabase/migrations/202609010004_twitch_chat_delivery.sql`
 - `supabase/functions/poll-center-api/index.ts`
 
 The migrations use isolated `poll_*` objects inside the shared Polls | Appeals Center project. Row Level Security denies direct browser writes. The Edge Function uses server-only Supabase credentials and validates every staff action.
 
 ## Privacy and security
 
-Do not commit Twitch tokens, webhook URLs, Supabase secret/service-role keys, passwords, or private Streamer.bot exports.
+Do not commit Twitch tokens, client secrets, webhook URLs, Supabase secret/service-role keys, or passwords.
