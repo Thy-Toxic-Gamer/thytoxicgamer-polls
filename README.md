@@ -33,7 +33,7 @@ Creator page:
 
 admin.html
 
-Only a temporary API-issued link can unlock the real creator. Streamer.bot will check whether the requesting chatter is the broadcaster or a moderator before privately sending that one-time link.
+The real creator uses the existing Supabase Twitch login. The Owner receives persistent access until signing out, while moderators must be explicitly added to `poll_staff`.
 
 Creator demo:
 
@@ -52,25 +52,24 @@ The creator now uses one simple poll format:
 
 Up to three polls can be active at the same time. When three polls are already live, the creator blocks another poll until one closes or is cancelled.
 
-The Cloudflare Worker must also have `MAX_ACTIVE_POLLS=3` so the backend enforces the same limit.
+The Supabase database operation also enforces the same three-poll maximum.
 
 
 
-## Temporary creator access
+## Owner and moderator access
 
-1. Streamer.bot calls POST /api/admin/sessions with the private ADMIN_KEY.
-2. The API returns a one-time creator link that expires in 5 minutes.
-3. The creator page exchanges it for a 30-minute browser session.
-4. The one-time token is immediately removed from the browser address.
-5. All create, close, and cancel requests are authorized by the API.
+1. Poll Creator signs in through the Supabase Twitch provider.
+2. The Edge Function verifies the Twitch access token with Supabase Auth.
+3. The authenticated user must have an active `poll_staff` record.
+4. Owner and moderator roles can create, edit, close, and cancel active polls.
+5. Sessions persist securely until the user signs out or Supabase invalidates them.
 
-The GitHub Pages files contain no administrator key, Twitch token, or permanent creator credential.
+The GitHub Pages files contain only the public Supabase publishable key. They contain no service-role key, Twitch token, webhook, password, or permanent private credential.
 
 ## Streamer.bot event routes
 
-The later Streamer.bot phase will use:
+Streamer.bot uses:
 
-- POST /api/admin/sessions
 - GET /api/events/pending
 - POST /api/events/{eventId}/ack
 - GET /api/polls/active
@@ -94,23 +93,18 @@ Upload these flat files to the repository root:
 
 Publish GitHub Pages from the main branch and repository root.
 
-## Cloudflare Worker and D1
+## Supabase backend
 
-GitHub Pages hosts the interface. The included Cloudflare Worker and D1 schema store shared polls, votes, temporary creator sessions, and Streamer.bot events.
+GitHub Pages hosts the interface. Supabase Auth verifies Twitch users, Postgres stores shared polls and votes, and the `poll-center-api` Edge Function handles public and staff operations.
 
 Backend source:
 
-- worker/index.js
-- worker/schema.sql
-- worker/migration-v2.sql
-- wrangler.toml.example
+- `supabase/migrations/202609010001_poll_center.sql`
+- `supabase/migrations/202609010002_poll_operations.sql`
+- `supabase/functions/poll-center-api/index.ts`
 
-For a new database, run worker/schema.sql. If version 1 was already initialized, run worker/migration-v2.sql exactly once instead. Copy wrangler.toml.example to wrangler.toml and replace the D1 placeholders before deploying with Wrangler.
-
-Configure a strong ADMIN_KEY as a Cloudflare Worker secret. Never place it in config.js, wrangler.toml, chat messages, screenshots, or GitHub.
-
-After the Worker is published, place its HTTPS URL in config.js as apiBaseUrl.
+The migrations use isolated `poll_*` objects inside the shared Polls | Appeals Center project. Row Level Security denies direct browser writes. The Edge Function uses server-only Supabase credentials and validates every staff action.
 
 ## Privacy and security
 
-Do not commit Twitch tokens, webhook URLs, Cloudflare credentials, administrator keys, passwords, or private Streamer.bot exports.
+Do not commit Twitch tokens, webhook URLs, Supabase secret/service-role keys, passwords, or private Streamer.bot exports.

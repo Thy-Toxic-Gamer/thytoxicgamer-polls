@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,700;1,800;1,900&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
     <link rel="preload" as="image" href="assets/poll-center-hero.webp" fetchpriority="high" />
     <link rel="stylesheet" href="styles.css?release=1.0.48" />
-    <link rel="stylesheet" href="admin.css" />
+    <link rel="stylesheet" href="admin.css?release=1.1.0" />
   </head>
   <body>
     <main class="site-shell admin-shell">
@@ -35,18 +35,31 @@
       <section class="access-card" id="authorizing-view">
         <div class="toxic-loader" aria-hidden="true"></div>
         <p class="section-label">Protected creator</p>
-        <h2>Verifying your temporary access...</h2>
-        <p>The creator opens only from a private link issued through Streamer.bot.</p>
+        <h2>Checking Poll Center access...</h2>
+        <p>Owner and staff sessions are verified directly through Twitch and secured by Supabase.</p>
       </section>
 
       <section class="access-card denied-card" id="denied-view" hidden>
         <div class="status-symbol" aria-hidden="true">!</div>
         <p class="section-label">Access unavailable</p>
-        <h2 id="denied-heading">This creator link is missing or expired</h2>
-        <p id="denied-message">Use <strong>!pollpanel</strong> in Twitch chat to request a fresh private link.</p>
+        <h2 id="denied-heading">Owner or moderator access required</h2>
+        <p id="denied-message">Sign in with the Twitch Owner account, or use <strong>!pollpanel</strong> for temporary moderator access.</p>
+        <div class="access-actions">
+          <a class="primary-button button-link" id="owner-sign-in" href="#">Sign in as Owner with Twitch</a>
+          <span>Moderators can still use <strong>!pollpanel</strong> in Twitch chat.</span>
+        </div>
       </section>
 
       <div id="creator-view" hidden>
+        <section class="owner-session-bar" aria-label="Signed-in account">
+          <div>
+            <span class="section-label" id="session-role">Authorized account</span>
+            <strong id="session-name">Poll Center operator</strong>
+            <small id="session-expiry"></small>
+          </div>
+          <button class="secondary-button compact-button" id="sign-out-button" type="button">Sign out</button>
+        </section>
+
         <div class="demo-notice" id="demo-notice" hidden>
           <strong>Creator demo mode</strong>
           <span>You can test every control, but this preview will not post to Twitch or save votes.</span>
@@ -59,6 +72,15 @@
             <p>Up to three polls can run at the same time.</p>
           </div>
           <div class="current-poll-list" id="current-poll-list"></div>
+        </section>
+
+        <section class="current-poll poll-history" id="poll-history" hidden aria-labelledby="poll-history-title">
+          <div class="current-poll-heading">
+            <p class="section-label">Owner record</p>
+            <h2 id="poll-history-title">Recent polls</h2>
+            <p>The latest closed and cancelled polls remain visible here for quick review.</p>
+          </div>
+          <div class="history-list" id="history-list"></div>
         </section>
 
         <form class="creator-form" id="creator-form" novalidate>
@@ -158,7 +180,10 @@
               <strong>Ready to release the poll?</strong>
               <span>Streamer.bot will announce it to Twitch after the backend creates it.</span>
             </div>
-            <button class="primary-button" id="open-poll-button" type="submit">Open 𝐓☣︎𝐱𝐢c Poll</button>
+            <div class="release-actions">
+              <button class="secondary-button compact-button" id="test-poll-button" type="button">Test Poll</button>
+              <button class="primary-button" id="open-poll-button" type="submit">Open 𝐓☣︎𝐱𝐢c Poll</button>
+            </div>
           </div>
         </form>
 
@@ -177,11 +202,47 @@
 
       <footer>
         <span>⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆ Protected Poll Creator</span>
-        <span>Temporary links expire and can only be exchanged once.</span>
+        <span>Owner access is Twitch-verified. Moderator links are temporary and single-use.</span>
       </footer>
     </main>
 
-    <script src="config.js"></script>
-    <script src="admin.js"></script>
+    <dialog class="control-dialog" id="confirm-dialog">
+      <form method="dialog">
+        <p class="section-label">Confirm control</p>
+        <h2 id="confirm-title">Close this poll?</h2>
+        <p id="confirm-message"></p>
+        <div class="dialog-actions">
+          <button class="secondary-button compact-button" value="cancel">Keep poll open</button>
+          <button class="danger-button" id="confirm-action-button" value="confirm">Confirm</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="control-dialog edit-dialog" id="edit-dialog">
+      <form id="edit-form" method="dialog">
+        <p class="section-label">Live control</p>
+        <h2>Edit active poll</h2>
+        <label class="field full-field"><span class="field-label">Poll question</span><input id="edit-question" type="text" maxlength="180" required /></label>
+        <div class="option-heading"><div><span class="field-label">Answers</span><span class="field-help">Choices with votes can be renamed but not removed.</span></div><button class="secondary-button compact-button" id="edit-add-option" type="button">Add answer</button></div>
+        <div class="option-editor" id="edit-option-editor"></div>
+        <fieldset class="setting-group edit-results"><legend>Show percentages</legend><div class="result-modes" id="edit-results-modes"></div></fieldset>
+        <label class="reset-timer"><input id="edit-reset-timer" type="checkbox" /><span>Restart the timer using:</span><select id="edit-duration"><option value="60">1 minute</option><option value="120">2 minutes</option><option value="180">3 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option></select></label>
+        <p class="form-status" id="edit-status" aria-live="polite"></p>
+        <div class="dialog-actions"><button class="secondary-button compact-button" value="cancel">Cancel changes</button><button class="primary-button" id="save-poll-button" value="default">Save changes</button></div>
+      </form>
+    </dialog>
+
+    <dialog class="control-dialog test-dialog" id="test-dialog">
+      <form method="dialog">
+        <div class="test-heading"><div><p class="section-label">Browser-only sandbox</p><h2>Test Poll</h2></div><span class="safe-badge">Saves nothing</span></div>
+        <p>This preview never contacts the API, Discord, Twitch, or Streamer.bot.</p>
+        <div class="test-poll-card"><span class="current-type">Local test</span><h3 id="test-question"></h3><div class="test-options" id="test-options"></div><div class="test-footer"><strong id="test-total">0 test votes</strong><span id="test-timer">01:00</span></div></div>
+        <div class="dialog-actions"><button class="secondary-button compact-button" id="reset-test-button" type="button">Reset test</button><button class="primary-button" value="close">Done</button></div>
+      </form>
+    </dialog>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js?v=3.0.0"></script>
+    <script src="admin.js?release=1.1.0"></script>
   </body>
 </html>
