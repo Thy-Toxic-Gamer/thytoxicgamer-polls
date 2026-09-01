@@ -6,6 +6,13 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const SITE_ORIGIN = Deno.env.get("SITE_ORIGIN") ?? "https://thy-toxic-gamer.github.io";
 const PUBLIC_POLL_URL = Deno.env.get("PUBLIC_POLL_URL") ?? "https://thy-toxic-gamer.github.io/thytoxicgamer-polls/";
 const INTEGRATION_KEY = Deno.env.get("POLL_INTEGRATION_KEY") ?? "";
+const ADMIN_PAGE_URL = Deno.env.get("POLL_ADMIN_URL") ?? "https://thy-toxic-gamer.github.io/thytoxicgamer-polls/admin.html";
+const TWITCH_CLIENT_ID = Deno.env.get("TWITCH_CLIENT_ID") ?? "";
+const TWITCH_CLIENT_SECRET = Deno.env.get("TWITCH_CLIENT_SECRET") ?? "";
+const TWITCH_BOT_LOGIN = (Deno.env.get("TWITCH_BOT_LOGIN") ?? "thytoxicbot").toLowerCase();
+const TWITCH_BROADCASTER_LOGIN = (Deno.env.get("TWITCH_BROADCASTER_LOGIN") ?? "thytoxicgamer").toLowerCase();
+const TWITCH_REDIRECT_URI = Deno.env.get("TWITCH_REDIRECT_URI")
+  ?? `${SUPABASE_URL}/functions/v1/poll-center-api/api/twitch/callback`;
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -21,6 +28,22 @@ type PollRow = {
   status: "active" | "closed" | "cancelled";
   poll_style: "multiple";
   results_mode: "live" | "after_vote" | "after_close";
+};
+
+type StaffSession = Awaited<ReturnType<typeof requireStaff>>;
+
+type TwitchConnection = {
+  sender_user_id: string;
+  sender_login: string;
+  broadcaster_user_id: string;
+  broadcaster_login: string;
+  access_token: string;
+  refresh_token: string;
+  token_expires_at: string;
+  scopes: string[];
+  connected_at: string;
+  last_success_at: string | null;
+  last_error: string | null;
 };
 
 class ApiError extends Error {
@@ -43,6 +66,10 @@ export default {
       return json(request, { ok: true, service: "Poll Center API", version: "1.0" });
     }
 
+    if (request.method === "GET" && path === "/api/twitch/callback") {
+      return await handleTwitchCallback(request);
+    }
+
     if (request.method === "GET" && path === "/api/admin/session") {
       const staff = await requireStaff(request);
       return json(request, { ok: true, adminName: staff.displayName, role: staff.role });
@@ -51,6 +78,17 @@ export default {
     if (request.method === "GET" && path === "/api/admin/polls") {
       await requireStaff(request);
       return await getAdminPolls(request);
+    }
+
+    if (request.method === "GET" && path === "/api/admin/twitch/status") {
+      await requireStaff(request);
+      return await getTwitchStatus(request);
+    }
+
+    if (request.method === "POST" && path === "/api/admin/twitch/connect") {
+      const staff = await requireStaff(request);
+      requireOwner(staff);
+      return await beginTwitchConnection(request, staff);
     }
 
     if (request.method === "GET" && path === "/api/polls/active") {
@@ -84,6 +122,12 @@ export default {
     const voteMatch = path.match(/^\/api\/polls\/([0-9a-f-]+)\/votes$/i);
     if (request.method === "POST" && voteMatch) {
       return await submitVote(request, voteMatch[1]);
+    }
+
+    const announceMatch = path.match(/^\/api\/polls\/([0-9a-f-]+)\/announce$/i);
+    if (request.method === "POST" && announceMatch) {
+      await requireStaff(request);
+      return await announcePollAgain(request, announceMatch[1]);
     }
 
     const updateMatch = path.match(/^\/api\/polls\/([0-9a-f-]+)\/update$/i);
@@ -139,6 +183,12 @@ async function requireStaff(request: Request) {
   };
 }
 
+function requireOwner(staff: StaffSession) {
+  if (staff.role !== "owner") {
+    throw new ApiError("owner_required", "Only the Poll Center Owner can connect ThyToxicBot.", 403);
+  }
+}
+
 function requireIntegration(request: Request) {
   if (!INTEGRATION_KEY) {
     throw new ApiError("integration_not_configured", "Poll integration access is not configured.", 503);
@@ -146,6 +196,323 @@ function requireIntegration(request: Request) {
   if (bearerToken(request) !== INTEGRATION_KEY) {
     throw new ApiError("unauthorized", "A valid Poll integration key is required.", 401);
   }
+}
+
+function requireTwitchAppConfiguration() {
+  if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) {
+    throw new ApiError(
+      "twitch_not_configured",
+      "Add TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET to the Edge Function secrets first.",
+      503,
+    );
+  }
+}
+
+async function getTwitchStatus(request: Request) {
+  const { data, error } = await db
+    .from("poll_twitch_connection")
+    .select("sender_login, broadcaster_login, connected_at, token_expires_at, last_success_at, last_error")
+    .eq("singleton", true)
+    .maybeSingle();
+  if (error) throw error;
+
+  return json(request, {
+    connected: Boolean(data),
+    senderLogin: data?.sender_login ?? TWITCH_BOT_LOGIN,
+    broadcasterLogin: data?.broadcaster_login ?? TWITCH_BROADCASTER_LOGIN,
+    connectedAt: data?.connected_at ?? null,
+    tokenExpiresAt: data?.token_expires_at ?? null,
+    lastSuccessAt: data?.last_success_at ?? null,
+    lastError: data?.last_error ?? null,
+    configured: Boolean(TWITCH_CLIENT_ID && TWITCH_CLIENT_SECRET),
+  });
+}
+
+async function beginTwitchConnection(request: Request, staff: StaffSession) {
+  requireTwitchAppConfiguration();
+  const state = randomHex(32);
+  const stateHash = await hashText(state);
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+  await db.from("poll_twitch_oauth_states").delete().lt("expires_at", new Date().toISOString());
+  const { error } = await db.from("poll_twitch_oauth_states").insert({
+    state_hash: stateHash,
+    created_by: staff.userId,
+    expires_at: expiresAt,
+  });
+  if (error) throw error;
+
+  const authorizationUrl = new URL("https://id.twitch.tv/oauth2/authorize");
+  authorizationUrl.searchParams.set("client_id", TWITCH_CLIENT_ID);
+  authorizationUrl.searchParams.set("redirect_uri", TWITCH_REDIRECT_URI);
+  authorizationUrl.searchParams.set("response_type", "code");
+  authorizationUrl.searchParams.set("scope", "user:write:chat user:bot");
+  authorizationUrl.searchParams.set("state", state);
+  authorizationUrl.searchParams.set("force_verify", "true");
+
+  return json(request, { authorizationUrl: authorizationUrl.toString(), expiresAt });
+}
+
+async function handleTwitchCallback(request: Request) {
+  const redirect = new URL(ADMIN_PAGE_URL);
+  try {
+    requireTwitchAppConfiguration();
+    const url = new URL(request.url);
+    const providerError = url.searchParams.get("error_description") || url.searchParams.get("error");
+    if (providerError) throw new ApiError("twitch_authorization_cancelled", providerError, 400);
+
+    const code = cleanText(url.searchParams.get("code"), 1000);
+    const state = cleanText(url.searchParams.get("state"), 1000);
+    if (!code || !state) throw new ApiError("invalid_oauth_callback", "Twitch did not return a valid authorization code.");
+
+    const stateHash = await hashText(state);
+    const { data: oauthState, error: stateError } = await db
+      .from("poll_twitch_oauth_states")
+      .update({ used_at: new Date().toISOString() })
+      .eq("state_hash", stateHash)
+      .is("used_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .select("created_by")
+      .maybeSingle();
+    if (stateError) throw stateError;
+    if (!oauthState) throw new ApiError("invalid_oauth_state", "This ThyToxicBot connection link expired. Start again.", 400);
+
+    const token = await exchangeTwitchCode(code);
+    const sender = await getTwitchUser(token.access_token);
+    if (sender.login.toLowerCase() !== TWITCH_BOT_LOGIN) {
+      throw new ApiError(
+        "wrong_twitch_account",
+        `Twitch authorized ${sender.login}. Sign out of Twitch and connect ${TWITCH_BOT_LOGIN} instead.`,
+        403,
+      );
+    }
+
+    const broadcaster = await getTwitchUser(token.access_token, TWITCH_BROADCASTER_LOGIN);
+    const expiresAt = new Date(Date.now() + Number(token.expires_in || 0) * 1000).toISOString();
+    const { error: storeError } = await db.rpc("poll_twitch_store_connection", {
+      p_actor: oauthState.created_by,
+      p_sender_user_id: sender.id,
+      p_sender_login: sender.login,
+      p_broadcaster_user_id: broadcaster.id,
+      p_broadcaster_login: broadcaster.login,
+      p_access_token: token.access_token,
+      p_refresh_token: token.refresh_token,
+      p_expires_at: expiresAt,
+      p_scopes: token.scope ?? [],
+    });
+    if (storeError) throw storeError;
+
+    await flushActivePollAnnouncements();
+    redirect.searchParams.set("twitch_chat", "connected");
+  } catch (error) {
+    const typed = normalizeError(error);
+    console.error(error);
+    redirect.searchParams.set("twitch_chat", "error");
+    redirect.searchParams.set("twitch_message", typed.message);
+  }
+  return Response.redirect(redirect.toString(), 302);
+}
+
+async function exchangeTwitchCode(code: string) {
+  const body = new URLSearchParams({
+    client_id: TWITCH_CLIENT_ID,
+    client_secret: TWITCH_CLIENT_SECRET,
+    code,
+    grant_type: "authorization_code",
+    redirect_uri: TWITCH_REDIRECT_URI,
+  });
+  const response = await fetch("https://id.twitch.tv/oauth2/token", { method: "POST", body });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.access_token || !payload.refresh_token) {
+    throw new ApiError("twitch_token_exchange_failed", payload.message || "Twitch did not issue a bot token.", 502);
+  }
+  return payload as {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    scope: string[];
+  };
+}
+
+async function getTwitchUser(accessToken: string, login = "") {
+  const url = new URL("https://api.twitch.tv/helix/users");
+  if (login) url.searchParams.set("login", login);
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}`, "Client-Id": TWITCH_CLIENT_ID },
+  });
+  const payload = await response.json().catch(() => ({}));
+  const user = payload?.data?.[0];
+  if (!response.ok || !user?.id || !user?.login) {
+    throw new ApiError("twitch_user_lookup_failed", payload.message || `Twitch could not find ${login || "the bot account"}.`, 502);
+  }
+  return { id: String(user.id), login: String(user.login), displayName: String(user.display_name || user.login) };
+}
+
+async function getTwitchConnection() {
+  const { data, error } = await db.rpc("poll_twitch_get_connection");
+  if (error) throw error;
+  const connection = Array.isArray(data) ? data[0] : data;
+  if (!connection?.access_token || !connection?.refresh_token) {
+    throw new ApiError("twitch_not_connected", "Connect ThyToxicBot before announcing polls.", 503);
+  }
+  return connection as TwitchConnection;
+}
+
+async function refreshTwitchConnection(connection: TwitchConnection) {
+  requireTwitchAppConfiguration();
+  const body = new URLSearchParams({
+    client_id: TWITCH_CLIENT_ID,
+    client_secret: TWITCH_CLIENT_SECRET,
+    grant_type: "refresh_token",
+    refresh_token: connection.refresh_token,
+  });
+  const response = await fetch("https://id.twitch.tv/oauth2/token", { method: "POST", body });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.access_token || !payload.refresh_token) {
+    throw new ApiError("twitch_refresh_failed", payload.message || "ThyToxicBot needs to be reconnected.", 502);
+  }
+
+  const expiresAt = new Date(Date.now() + Number(payload.expires_in || 0) * 1000).toISOString();
+  const { error } = await db.rpc("poll_twitch_update_tokens", {
+    p_access_token: payload.access_token,
+    p_refresh_token: payload.refresh_token,
+    p_expires_at: expiresAt,
+    p_scopes: payload.scope ?? connection.scopes,
+  });
+  if (error) throw error;
+
+  return {
+    ...connection,
+    access_token: payload.access_token,
+    refresh_token: payload.refresh_token,
+    token_expires_at: expiresAt,
+    scopes: payload.scope ?? connection.scopes,
+  } as TwitchConnection;
+}
+
+async function postTwitchChat(connection: TwitchConnection, message: string) {
+  const response = await fetch("https://api.twitch.tv/helix/chat/messages", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${connection.access_token}`,
+      "Client-Id": TWITCH_CLIENT_ID,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      broadcaster_id: connection.broadcaster_user_id,
+      sender_id: connection.sender_user_id,
+      message: truncate(message),
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  return { response, payload };
+}
+
+async function deliverPollEvent(eventId: number, poll: NonNullable<Awaited<ReturnType<typeof serializePoll>>>, eventType: string) {
+  try {
+    let connection = await getTwitchConnection();
+    if (Date.parse(connection.token_expires_at) <= Date.now() + 60_000) {
+      connection = await refreshTwitchConnection(connection);
+    }
+
+    let delivery = await postTwitchChat(connection, buildChatMessage(eventType, poll));
+    if (delivery.response.status === 401) {
+      connection = await refreshTwitchConnection(connection);
+      delivery = await postTwitchChat(connection, buildChatMessage(eventType, poll));
+    }
+
+    const result = delivery.payload?.data?.[0];
+    if (!delivery.response.ok || !result?.is_sent) {
+      const reason = result?.drop_reason?.message || delivery.payload?.message || `Twitch returned ${delivery.response.status}.`;
+      throw new ApiError("twitch_message_failed", reason, 502);
+    }
+
+    const { error } = await db.rpc("poll_twitch_mark_delivery", {
+      p_event_id: eventId,
+      p_status: "sent",
+      p_message_id: result.message_id ?? null,
+      p_error: null,
+    });
+    if (error) throw error;
+    return { status: "sent", message: `Announced by ${connection.sender_login}.`, messageId: result.message_id ?? null };
+  } catch (error) {
+    const typed = normalizeError(error);
+    const { error: markError } = await db.rpc("poll_twitch_mark_delivery", {
+      p_event_id: eventId,
+      p_status: "failed",
+      p_message_id: null,
+      p_error: typed.message,
+    });
+    if (markError) console.error("Could not record Twitch delivery failure.", markError);
+    console.error(error);
+    return { status: "failed", message: typed.message };
+  }
+}
+
+async function findPollEvent(pollId: string, eventType: string) {
+  const { data, error } = await db
+    .from("poll_events")
+    .select("id, event_type")
+    .eq("poll_id", pollId)
+    .eq("event_type", eventType)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data as { id: number; event_type: string } | null;
+}
+
+async function announceCreatedPoll(pollId: string, poll: NonNullable<Awaited<ReturnType<typeof serializePoll>>>) {
+  const event = await findPollEvent(pollId, "poll_opened");
+  if (!event) return { status: "failed", message: "The poll announcement record was not found." };
+  return await deliverPollEvent(event.id, poll, event.event_type);
+}
+
+async function flushActivePollAnnouncements() {
+  await closeExpired();
+  const { data: activePolls, error: pollError } = await db
+    .from("polls")
+    .select("id")
+    .eq("status", "active")
+    .gt("closes_at", new Date().toISOString())
+    .order("created_at")
+    .limit(3);
+  if (pollError) throw pollError;
+
+  const activePollIds = (activePolls ?? []).map((poll) => poll.id);
+  if (!activePollIds.length) return;
+
+  const { data, error } = await db
+    .from("poll_events")
+    .select("id, poll_id, event_type")
+    .eq("event_type", "poll_opened")
+    .in("poll_id", activePollIds)
+    .in("delivery_status", ["pending", "failed"])
+    .order("created_at")
+    .limit(3);
+  if (error) throw error;
+
+  for (const event of data ?? []) {
+    const poll = await serializePoll(event.poll_id, true);
+    if (poll) await deliverPollEvent(event.id, poll, event.event_type);
+  }
+}
+
+async function announcePollAgain(request: Request, pollId: string) {
+  const poll = await serializePoll(pollId, true);
+  if (!poll) throw new ApiError("poll_not_found", "That poll does not exist.", 404);
+  if (poll.status !== "active" || Date.parse(poll.closesAt) <= Date.now()) {
+    throw new ApiError("poll_not_active", "Only an active poll can be announced again.", 409);
+  }
+  const event = await findPollEvent(pollId, "poll_opened");
+  if (!event) throw new ApiError("event_not_found", "The poll announcement record was not found.", 404);
+  const announcement = await deliverPollEvent(event.id, poll, event.event_type);
+  return json(request, { poll: await serializePoll(pollId, true), announcement });
+}
+
+function randomHex(byteLength: number) {
+  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 async function closeExpired() {
@@ -207,7 +574,10 @@ async function createPoll(request: Request, staff: Awaited<ReturnType<typeof req
     p_options: options,
   });
   if (error) throw error;
-  return json(request, { poll: await serializePoll(pollId, true) }, 201);
+  const poll = await serializePoll(pollId, true);
+  if (!poll) throw new ApiError("poll_not_found", "The new poll could not be loaded.", 500);
+  const announcement = await announceCreatedPoll(pollId, poll);
+  return json(request, { poll: await serializePoll(pollId, true), announcement }, 201);
 }
 
 async function updatePoll(
@@ -269,14 +639,27 @@ async function submitVote(request: Request, pollId: string) {
 }
 
 async function serializePoll(pollId: string, forceReveal = false) {
-  const [{ data: poll, error: pollError }, { data: options, error: optionError }, { data: votes, error: voteError }] = await Promise.all([
+  const [
+    { data: poll, error: pollError },
+    { data: options, error: optionError },
+    { data: votes, error: voteError },
+    { data: announcement, error: announcementError },
+  ] = await Promise.all([
     db.from("polls").select("*").eq("id", pollId).maybeSingle<PollRow>(),
     db.from("poll_options").select("id, label, position").eq("poll_id", pollId).order("position"),
     db.from("poll_votes").select("option_id").eq("poll_id", pollId),
+    db.from("poll_events")
+      .select("delivery_status, delivery_attempts, delivery_last_error, delivered_at")
+      .eq("poll_id", pollId)
+      .eq("event_type", "poll_opened")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
   if (pollError) throw pollError;
   if (optionError) throw optionError;
   if (voteError) throw voteError;
+  if (announcementError) throw announcementError;
   if (!poll) return null;
 
   const counts = new Map<string, number>();
@@ -295,7 +678,7 @@ async function serializePoll(pollId: string, forceReveal = false) {
     };
   });
 
-  return {
+  const serialized = {
     id: poll.id,
     question: poll.question,
     createdBy: poll.creator_name,
@@ -308,6 +691,16 @@ async function serializePoll(pollId: string, forceReveal = false) {
     totalVotes: hideResults ? 0 : actualTotal,
     resultsHidden: hideResults,
     options: serializedOptions,
+  };
+  if (!forceReveal) return serialized;
+  return {
+    ...serialized,
+    announcement: announcement ? {
+      status: announcement.delivery_status,
+      attempts: announcement.delivery_attempts,
+      lastError: announcement.delivery_last_error,
+      deliveredAt: announcement.delivered_at,
+    } : null,
   };
 }
 
@@ -405,6 +798,7 @@ function normalizeError(error: unknown) {
   const raw = String((error as { message?: string })?.message ?? error ?? "");
   const mappings: Array<[string, string, string, number]> = [
     ["poll_forbidden", "forbidden", "This Twitch account is not authorized for Poll Center controls.", 403],
+    ["poll_owner_required", "owner_required", "Only the Poll Center Owner can connect ThyToxicBot.", 403],
     ["poll_limit_reached", "poll_limit_reached", "Three polls are already active. Close or cancel one first.", 409],
     ["poll_not_active", "poll_not_active", "That poll is already closed, cancelled, or expired.", 409],
     ["already_voted", "already_voted", "This viewer has already voted in the poll.", 409],
