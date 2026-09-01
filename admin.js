@@ -15,6 +15,10 @@ const elements = {
   demoNotice: document.querySelector("#demo-notice"), sessionRole: document.querySelector("#session-role"),
   sessionName: document.querySelector("#session-name"), sessionExpiry: document.querySelector("#session-expiry"),
   signOut: document.querySelector("#sign-out-button"), currentPoll: document.querySelector("#current-poll"),
+  twitchConnectionCard: document.querySelector("#twitch-connection-card"),
+  twitchConnectionMessage: document.querySelector("#twitch-connection-message"),
+  twitchConnectionBadge: document.querySelector("#twitch-connection-badge"),
+  connectTwitch: document.querySelector("#connect-twitch-button"),
   currentPollList: document.querySelector("#current-poll-list"), pollHistory: document.querySelector("#poll-history"),
   historyList: document.querySelector("#history-list"), form: document.querySelector("#creator-form"),
   question: document.querySelector("#question-input"), questionCount: document.querySelector("#question-count"),
@@ -23,6 +27,7 @@ const elements = {
   previewOptions: document.querySelector("#preview-options"), formStatus: document.querySelector("#form-status"),
   testPoll: document.querySelector("#test-poll-button"), openPoll: document.querySelector("#open-poll-button"),
   success: document.querySelector("#success-view"), successQuestion: document.querySelector("#success-question"),
+  announcementResult: document.querySelector("#announcement-result"),
   viewPollLink: document.querySelector("#view-poll-link"), copyLink: document.querySelector("#copy-link-button"),
   createAnother: document.querySelector("#create-another-button"), confirmDialog: document.querySelector("#confirm-dialog"),
   confirmTitle: document.querySelector("#confirm-title"), confirmMessage: document.querySelector("#confirm-message"),
@@ -41,7 +46,7 @@ const state = {
   options: ["Choice 1", "Choice 2"], session: null, adminName: "", role: "",
   currentPolls: [], recentPolls: [], countdown: null, submitting: false,
   editingPoll: null, editOptions: [], testData: null, testSelected: "",
-  testEndsAt: 0, testCountdown: null,
+  testEndsAt: 0, testCountdown: null, twitchStatus: null,
 };
 
 const supabaseClient = !config.demoMode && window.supabase?.createClient
@@ -121,6 +126,14 @@ async function authorize() {
     state.adminName = response.adminName;
     state.role = response.role;
     finishAuthorization();
+    const twitchChatResult = params.get("twitch_chat");
+    if (twitchChatResult) {
+      const message = params.get("twitch_message");
+      elements.formStatus.textContent = twitchChatResult === "connected"
+        ? "ThyToxicBot is connected. Supabase can now announce active polls directly in Twitch chat."
+        : message || "ThyToxicBot could not be connected.";
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   } catch (error) {
     if (error.status === 403) {
       showDenied("This Twitch account is not authorized", "Sign out and use the ThyToxicGamer Owner account, or ask the Owner to add this account as Poll Center staff.");
@@ -154,7 +167,78 @@ function finishAuthorization() {
   setPill("live", state.role === "owner" ? "Owner online" : "Staff online");
   renderOptions();
   updatePreview();
+  loadTwitchStatus();
   loadAdminPolls();
+}
+
+async function loadTwitchStatus() {
+  if (config.demoMode) {
+    elements.twitchConnectionBadge.dataset.state = "connected";
+    elements.twitchConnectionBadge.textContent = "Demo ready";
+    elements.twitchConnectionMessage.textContent = "Demo mode never contacts Twitch.";
+    return;
+  }
+  try {
+    const status = await apiRequest("/api/admin/twitch/status");
+    state.twitchStatus = status;
+    elements.connectTwitch.hidden = state.role !== "owner";
+    if (status.connected) {
+      elements.twitchConnectionBadge.dataset.state = status.lastError ? "error" : "connected";
+      elements.twitchConnectionBadge.textContent = status.lastError ? "Needs attention" : "Connected";
+      elements.twitchConnectionMessage.textContent = status.lastError
+        ? `@${status.senderLogin} is connected, but the last announcement failed: ${status.lastError}`
+        : `Supabase will post poll links as @${status.senderLogin} in @${status.broadcasterLogin}'s chat.`;
+      elements.connectTwitch.textContent = "Reconnect ThyToxicBot";
+    } else {
+      elements.twitchConnectionBadge.dataset.state = "error";
+      elements.twitchConnectionBadge.textContent = "Not connected";
+      elements.twitchConnectionMessage.textContent = status.configured
+        ? "Connect @ThyToxicBot once so Supabase can announce polls directly in Twitch chat."
+        : "The Twitch application credentials must be added to Supabase before connecting the bot.";
+      elements.connectTwitch.textContent = "Connect ThyToxicBot";
+    }
+  } catch (error) {
+    elements.twitchConnectionBadge.dataset.state = "error";
+    elements.twitchConnectionBadge.textContent = "Setup required";
+    elements.twitchConnectionMessage.textContent = error.message || "The Twitch connection status could not be loaded.";
+    elements.connectTwitch.hidden = state.role !== "owner";
+  }
+}
+
+async function connectTwitchBot() {
+  if (state.role !== "owner" || config.demoMode) return;
+  elements.connectTwitch.disabled = true;
+  elements.connectTwitch.textContent = "Opening Twitch...";
+  try {
+    const response = await apiRequest("/api/admin/twitch/connect", { method: "POST" });
+    window.location.assign(response.authorizationUrl);
+  } catch (error) {
+    elements.twitchConnectionBadge.dataset.state = "error";
+    elements.twitchConnectionBadge.textContent = "Setup required";
+    elements.twitchConnectionMessage.textContent = error.message;
+    elements.connectTwitch.disabled = false;
+    elements.connectTwitch.textContent = "Connect ThyToxicBot";
+  }
+}
+
+async function announcePoll(poll, button) {
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Sending...";
+  }
+  try {
+    const response = await apiRequest(`/api/polls/${encodeURIComponent(poll.id)}/announce`, { method: "POST" });
+    const message = response.announcement?.message || "The voting link was sent to Twitch chat.";
+    elements.formStatus.textContent = message;
+    await Promise.all([loadAdminPolls(), loadTwitchStatus()]);
+  } catch (error) {
+    elements.formStatus.textContent = error.message || "The voting link could not be sent to Twitch chat.";
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Resend to Twitch";
+    }
+  }
 }
 
 function renderOptions() {
@@ -236,10 +320,13 @@ async function openPoll(event) {
   elements.openPoll.disabled = true;
   elements.openPoll.textContent = "Opening poll...";
   try {
-    const poll = config.demoMode
-      ? { id: `demo-${Date.now()}`, ...data, status: "active", closesAt: new Date(Date.now() + data.durationSeconds * 1000).toISOString(), options: data.options.map((label, index) => ({ id: `demo-${index}`, label, votes: 0 })) }
-      : (await apiRequest("/api/polls", { method: "POST", body: JSON.stringify(data) })).poll;
-    showSuccess(poll);
+    const response = config.demoMode
+      ? {
+          poll: { id: `demo-${Date.now()}`, ...data, status: "active", closesAt: new Date(Date.now() + data.durationSeconds * 1000).toISOString(), options: data.options.map((label, index) => ({ id: `demo-${index}`, label, votes: 0 })) },
+          announcement: { status: "demo", message: "Browser-only test; nothing was sent to Twitch." },
+        }
+      : await apiRequest("/api/polls", { method: "POST", body: JSON.stringify(data) });
+    showSuccess(response.poll, response.announcement);
     await loadAdminPolls();
   } catch (error) {
     elements.formStatus.textContent = error.message || "The poll could not be opened.";
@@ -250,7 +337,7 @@ async function openPoll(event) {
   }
 }
 
-function showSuccess(poll) {
+function showSuccess(poll, announcement) {
   elements.form.hidden = true;
   elements.success.hidden = false;
   elements.successQuestion.textContent = poll.question;
@@ -259,6 +346,11 @@ function showSuccess(poll) {
   else publicUrl.searchParams.set("poll", poll.id);
   elements.viewPollLink.href = publicUrl.toString();
   elements.copyLink.dataset.url = publicUrl.toString();
+  const announcementStatus = announcement?.status || "failed";
+  elements.announcementResult.dataset.state = announcementStatus;
+  elements.announcementResult.textContent = announcementStatus === "sent"
+    ? "✓ ThyToxicBot posted the voting link in Twitch chat."
+    : announcement?.message || "The poll is live, but its Twitch announcement needs to be resent.";
   window.scrollTo({ top: elements.success.offsetTop - 18, behavior: "smooth" });
 }
 
@@ -271,7 +363,10 @@ function showCurrentPolls(polls) {
   activePolls.forEach((poll, index) => {
     const item = document.createElement("article");
     item.className = "current-poll-item";
-    item.innerHTML = `<div><span class="current-type">Poll ${index + 1} · ${poll.totalVotes} votes</span><strong>${escapeHtml(poll.question)}</strong></div><div class="current-actions"><span class="current-timer" data-close-at="${poll.closesAt}">00:00</span><button class="secondary-button compact-button" data-action="edit" type="button">Edit</button><button class="secondary-button compact-button" data-action="close" type="button">Close now</button><button class="danger-button" data-action="cancel" type="button">Cancel</button></div>`;
+    const announcementState = poll.announcement?.status || "pending";
+    const announcementLabel = announcementState === "sent" ? "Twitch sent" : announcementState === "failed" ? "Twitch failed" : "Twitch pending";
+    item.innerHTML = `<div><span class="current-type">Poll ${index + 1} · ${poll.totalVotes} votes · ${announcementLabel}</span><strong>${escapeHtml(poll.question)}</strong></div><div class="current-actions"><span class="current-timer" data-close-at="${poll.closesAt}">00:00</span><button class="secondary-button compact-button" data-action="announce" type="button">${announcementState === "sent" ? "Resend to Twitch" : "Send to Twitch"}</button><button class="secondary-button compact-button" data-action="edit" type="button">Edit</button><button class="secondary-button compact-button" data-action="close" type="button">Close now</button><button class="danger-button" data-action="cancel" type="button">Cancel</button></div>`;
+    item.querySelector('[data-action="announce"]').addEventListener("click", (event) => announcePoll(poll, event.currentTarget));
     item.querySelector('[data-action="edit"]').addEventListener("click", () => openEditDialog(poll));
     item.querySelector('[data-action="close"]').addEventListener("click", () => confirmStatusChange(poll, "close"));
     item.querySelector('[data-action="cancel"]').addEventListener("click", () => confirmStatusChange(poll, "cancel"));
@@ -477,6 +572,7 @@ function escapeHtml(value) {
 
 elements.ownerSignIn.addEventListener("click", signInWithTwitch);
 elements.signOut.addEventListener("click", signOut);
+elements.connectTwitch.addEventListener("click", connectTwitchBot);
 elements.question.addEventListener("input", () => { elements.questionCount.textContent = String(elements.question.value.length); updatePreview(); });
 elements.addOption.addEventListener("click", () => { if (state.options.length < MAX_CHOICES) { state.options.push(`Choice ${state.options.length + 1}`); renderOptions(); updatePreview(); } });
 document.querySelectorAll('input[name="duration"]').forEach((input) => input.addEventListener("change", updatePreview));
