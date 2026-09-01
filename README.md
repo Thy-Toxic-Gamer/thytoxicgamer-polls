@@ -75,6 +75,7 @@ Poll Center does not require Streamer.bot for poll announcements. The Supabase E
 - Each `poll_opened` event records pending, sent, or failed delivery state.
 - Poll Creator shows delivery health and includes a Resend to Twitch control.
 - A failed Twitch message never destroys or rolls back the live poll.
+- The protected Completed Poll Archive supports search, status filters, final results, and pagination.
 
 Required Edge Function secrets:
 
