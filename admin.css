@@ -189,28 +189,59 @@
 
 .history-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   margin-top: 17px;
 }
 
 .history-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(6, 10, 7, 0.76);
+  overflow: hidden;
+}
+
+.history-item summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  border-top: 1px solid var(--border);
-  padding: 12px 2px 4px;
+  gap: 18px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
 }
 
-.history-item > div {
+.history-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.history-item summary::after {
+  content: "+";
+  color: var(--toxic);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.history-item[open] summary::after {
+  content: "−";
+}
+
+.history-item summary > div {
   display: grid;
   gap: 5px;
+  min-width: 0;
 }
 
-.history-item > span {
+.history-item summary > span {
+  margin-left: auto;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   text-align: right;
+  white-space: nowrap;
+}
+
+.history-item small {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .history-status {
@@ -223,6 +254,74 @@
 
 .history-status[data-status="cancelled"] {
   color: var(--danger);
+}
+
+.archive-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.archive-toolbar input,
+.archive-toolbar select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 13px;
+  color: var(--text);
+  background: rgba(4, 8, 5, 0.9);
+}
+
+.archive-toolbar input:focus,
+.archive-toolbar select:focus {
+  border-color: var(--toxic);
+  outline: none;
+}
+
+.archive-summary,
+.archive-empty {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.archive-empty {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 22px;
+  text-align: center;
+}
+
+.archive-results {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--border);
+  padding: 8px 16px 12px;
+}
+
+.archive-result-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(128, 255, 20, 0.09);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.archive-result-row:last-child {
+  border-bottom: 0;
+}
+
+.archive-result-row strong {
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.archive-more {
+  margin-top: 14px;
 }
 
 .current-poll-item {
@@ -1041,7 +1140,6 @@ input[type="text"][readonly] {
 
   .owner-session-bar,
   .twitch-connection-card,
-  .history-item,
   .dialog-actions,
   .test-heading,
   .reset-timer {
@@ -1054,7 +1152,14 @@ input[type="text"][readonly] {
     justify-content: space-between;
   }
 
-  .history-item > span {
+  .history-item summary {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .history-item summary > span {
+    width: calc(100% - 30px);
+    margin-left: 0;
     text-align: left;
   }
 
@@ -1071,6 +1176,10 @@ input[type="text"][readonly] {
   .current-poll-item {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .archive-toolbar {
+    grid-template-columns: 1fr;
   }
 }
 
