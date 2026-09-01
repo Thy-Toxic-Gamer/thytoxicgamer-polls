@@ -79,6 +79,70 @@
   color: var(--muted);
 }
 
+.twitch-connection-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 17px 18px;
+  background: rgba(7, 12, 8, 0.9);
+}
+
+.twitch-connection-card h2,
+.twitch-connection-card p {
+  margin: 0;
+}
+
+.twitch-connection-card h2 {
+  margin-top: 4px;
+  font-size: 20px;
+}
+
+.twitch-connection-card > div:first-child > p:last-child {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.twitch-connection-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+.integration-badge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.integration-badge[data-state="connected"] {
+  border-color: var(--border-toxic);
+  color: var(--toxic);
+}
+
+.integration-badge[data-state="error"] {
+  border-color: rgba(255, 106, 106, 0.35);
+  color: var(--danger);
+}
+
+.announcement-result[data-state="sent"] {
+  color: var(--toxic) !important;
+}
+
+.announcement-result[data-state="failed"] {
+  color: var(--danger) !important;
+}
+
 .denied-card .status-symbol {
   border-color: rgba(255, 106, 106, 0.34);
   background: rgba(255, 106, 106, 0.06);
@@ -976,12 +1040,18 @@ input[type="text"][readonly] {
   }
 
   .owner-session-bar,
+  .twitch-connection-card,
   .history-item,
   .dialog-actions,
   .test-heading,
   .reset-timer {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .twitch-connection-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .history-item > span {
