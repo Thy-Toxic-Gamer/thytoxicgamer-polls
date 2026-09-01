@@ -76,6 +76,7 @@ Poll Center does not require Streamer.bot for poll announcements. The Supabase E
 - Poll Creator shows delivery health and includes a Resend to Twitch control.
 - A failed Twitch message never destroys or rolls back the live poll.
 - The protected Completed Poll Archive supports search, status filters, final results, and pagination.
+- Completed and cancelled polls are automatically deleted 30 days after their status changes.
 
 Required Edge Function secrets:
 
@@ -115,6 +116,7 @@ Backend source:
 - `supabase/migrations/202609010002_poll_operations.sql`
 - `supabase/migrations/202609010003_service_role_grants.sql`
 - `supabase/migrations/202609010004_twitch_chat_delivery.sql`
+- `supabase/migrations/202609010005_poll_archive_retention.sql`
 - `supabase/functions/poll-center-api/index.ts`
 - `supabase/functions/poll-archive-api/index.ts`
 
