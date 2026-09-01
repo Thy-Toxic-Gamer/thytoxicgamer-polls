@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,700;1,800;1,900&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
     <link rel="preload" as="image" href="assets/poll-center-hero.webp" fetchpriority="high" />
     <link rel="stylesheet" href="styles.css?release=1.0.48" />
-    <link rel="stylesheet" href="admin.css?release=1.1.0" />
+    <link rel="stylesheet" href="admin.css?release=1.2.0" />
   </head>
   <body>
     <main class="site-shell admin-shell">
@@ -43,10 +43,10 @@
         <div class="status-symbol" aria-hidden="true">!</div>
         <p class="section-label">Access unavailable</p>
         <h2 id="denied-heading">Owner or moderator access required</h2>
-        <p id="denied-message">Sign in with the Twitch Owner account, or use <strong>!pollpanel</strong> for temporary moderator access.</p>
+        <p id="denied-message">Sign in with the Twitch account authorized for Poll Center controls.</p>
         <div class="access-actions">
           <a class="primary-button button-link" id="owner-sign-in" href="#">Sign in as Owner with Twitch</a>
-          <span>Moderators can still use <strong>!pollpanel</strong> in Twitch chat.</span>
+          <span>Approved moderators can use <strong>!pollpanel</strong> to open this protected page.</span>
         </div>
       </section>
 
@@ -58,6 +58,18 @@
             <small id="session-expiry"></small>
           </div>
           <button class="secondary-button compact-button" id="sign-out-button" type="button">Sign out</button>
+        </section>
+
+        <section class="twitch-connection-card" id="twitch-connection-card" aria-labelledby="twitch-connection-title">
+          <div>
+            <p class="section-label">Direct Twitch delivery</p>
+            <h2 id="twitch-connection-title">ThyToxicBot Chat Connection</h2>
+            <p id="twitch-connection-message">Checking whether Supabase can announce polls in Twitch chat...</p>
+          </div>
+          <div class="twitch-connection-actions">
+            <span class="integration-badge" id="twitch-connection-badge" data-state="waiting">Checking</span>
+            <button class="secondary-button compact-button" id="connect-twitch-button" type="button" hidden>Connect ThyToxicBot</button>
+          </div>
         </section>
 
         <div class="demo-notice" id="demo-notice" hidden>
@@ -178,7 +190,7 @@
           <div class="release-bar">
             <div>
               <strong>Ready to release the poll?</strong>
-              <span>Streamer.bot will announce it to Twitch after the backend creates it.</span>
+              <span>Supabase will have ThyToxicBot post the voting link directly in Twitch chat.</span>
             </div>
             <div class="release-actions">
               <button class="secondary-button compact-button" id="test-poll-button" type="button">Test Poll</button>
@@ -192,6 +204,7 @@
           <p class="section-label">Poll released</p>
           <h2>Your 𝐓☣︎𝐱𝐢c Poll is live</h2>
           <p id="success-question"></p>
+          <p class="announcement-result" id="announcement-result" aria-live="polite"></p>
           <div class="success-actions">
             <a class="primary-button button-link" id="view-poll-link" href="index.html" target="_blank" rel="noopener">View public poll</a>
             <button class="secondary-button compact-button" id="copy-link-button" type="button">Copy voting link</button>
@@ -202,7 +215,7 @@
 
       <footer>
         <span>⁅𝐓𝐡𝐲𝐓☣︎𝐱𝐢𝐜𝐆𝐚𝐦𝐞𝐫⁆ Protected Poll Creator</span>
-        <span>Owner access is Twitch-verified. Moderator links are temporary and single-use.</span>
+        <span>Owner and staff access is Twitch-verified through Supabase.</span>
       </footer>
     </main>
 
@@ -235,7 +248,7 @@
     <dialog class="control-dialog test-dialog" id="test-dialog">
       <form method="dialog">
         <div class="test-heading"><div><p class="section-label">Browser-only sandbox</p><h2>Test Poll</h2></div><span class="safe-badge">Saves nothing</span></div>
-        <p>This preview never contacts the API, Discord, Twitch, or Streamer.bot.</p>
+        <p>This preview stays in your browser and never sends or saves a live poll.</p>
         <div class="test-poll-card"><span class="current-type">Local test</span><h3 id="test-question"></h3><div class="test-options" id="test-options"></div><div class="test-footer"><strong id="test-total">0 test votes</strong><span id="test-timer">01:00</span></div></div>
         <div class="dialog-actions"><button class="secondary-button compact-button" id="reset-test-button" type="button">Reset test</button><button class="primary-button" value="close">Done</button></div>
       </form>
@@ -243,6 +256,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js?v=3.0.0"></script>
-    <script src="admin.js?release=1.1.0"></script>
+    <script src="admin.js?release=1.3.0"></script>
   </body>
 </html>
