@@ -77,10 +77,14 @@ function apiBase() {
   return String(config.apiBaseUrl || "").replace(/\/$/, "");
 }
 
-async function apiRequest(path, options = {}, includeSession = true) {
-  if (!apiBase()) throw new Error("The Poll API has not been connected yet.");
+function archiveApiBase() {
+  return apiBase().replace(/poll-center-api$/, "poll-archive-api");
+}
+
+async function apiRequest(path, options = {}, includeSession = true, baseUrl = apiBase()) {
+  if (!baseUrl) throw new Error("The Poll API has not been connected yet.");
   const token = includeSession ? state.session?.access_token : "";
-  const response = await fetch(`${apiBase()}${path}`, {
+  const response = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -453,7 +457,7 @@ async function loadPollArchive(reset = false) {
     limit: "12",
   });
   try {
-    const response = await apiRequest(`/api/admin/polls/archive?${params}`);
+    const response = await apiRequest(`/api/archive?${params}`, {}, true, archiveApiBase());
     if (requestId !== state.archiveRequestId) return;
     state.archivePolls = reset ? response.polls : [...state.archivePolls, ...response.polls];
     state.archiveTotal = Number(response.total || 0);
