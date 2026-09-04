@@ -258,9 +258,14 @@
 
 .archive-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 190px;
+  grid-template-columns: minmax(0, 1fr) 190px auto;
   gap: 10px;
   margin-top: 18px;
+}
+
+.archive-clear {
+  min-height: 44px;
+  white-space: nowrap;
 }
 
 .archive-toolbar input,
