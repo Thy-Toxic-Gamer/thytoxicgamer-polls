@@ -23,6 +23,7 @@ const elements = {
   historyList: document.querySelector("#history-list"), archiveSearch: document.querySelector("#archive-search"),
   archiveStatus: document.querySelector("#archive-status"), archiveSummary: document.querySelector("#archive-summary"),
   archiveEmpty: document.querySelector("#archive-empty"), archiveMore: document.querySelector("#archive-more"),
+  archiveClear: document.querySelector("#archive-clear"),
   form: document.querySelector("#creator-form"),
   question: document.querySelector("#question-input"), questionCount: document.querySelector("#question-count"),
   optionEditor: document.querySelector("#option-editor"), addOption: document.querySelector("#add-option-button"),
@@ -410,6 +411,8 @@ function renderPollArchive() {
     : state.archiveLoading && !state.archivePolls.length
     ? "Loading archived polls..."
     : `Showing ${state.archivePolls.length} of ${state.archiveTotal} archived poll${state.archiveTotal === 1 ? "" : "s"}.`;
+  elements.archiveClear.hidden = state.role !== "owner";
+  elements.archiveClear.disabled = state.archiveLoading || state.archiveTotal === 0;
 
   state.archivePolls.forEach((poll) => {
     const item = document.createElement("details");
@@ -433,6 +436,32 @@ function renderPollArchive() {
       <div class="archive-results" aria-label="Final poll results">${options}</div>`;
     elements.historyList.append(item);
   });
+}
+
+async function clearPollArchive() {
+  if (state.role !== "owner" || state.archiveLoading || state.archiveTotal === 0) return;
+  const statusLabel = elements.archiveStatus.options[elements.archiveStatus.selectedIndex]?.text || "archived";
+  const search = elements.archiveSearch.value.trim();
+  const scope = search ? `${statusLabel.toLowerCase()} polls matching “${search}”` : `${statusLabel.toLowerCase()} polls`;
+  const confirmed = await askConfirmation(
+    "Clear archived polls?",
+    `This will permanently delete ${state.archiveTotal} ${scope}, including their choices and votes. Active polls will not be affected. This cannot be undone.`,
+    "Clear polls"
+  );
+  if (!confirmed) return;
+  elements.archiveClear.disabled = true;
+  try {
+    const params = new URLSearchParams({
+      status: elements.archiveStatus.value,
+      search,
+    });
+    const response = await apiRequest(`/api/archive?${params}`, { method: "DELETE" }, true, archiveApiBase());
+    state.archiveError = `Deleted ${Number(response.deleted || 0)} archived poll${Number(response.deleted || 0) === 1 ? "" : "s"}.`;
+    await loadPollArchive(true);
+  } catch (error) {
+    state.archiveError = error.message;
+    renderPollArchive();
+  }
 }
 
 async function loadPollArchive(reset = false) {
@@ -655,6 +684,7 @@ elements.archiveSearch.addEventListener("input", () => {
 });
 elements.archiveStatus.addEventListener("change", () => loadPollArchive(true));
 elements.archiveMore.addEventListener("click", () => loadPollArchive(false));
+elements.archiveClear.addEventListener("click", clearPollArchive);
 elements.question.addEventListener("input", () => { elements.questionCount.textContent = String(elements.question.value.length); updatePreview(); });
 elements.addOption.addEventListener("click", () => { if (state.options.length < MAX_CHOICES) { state.options.push(`Choice ${state.options.length + 1}`); renderOptions(); updatePreview(); } });
 document.querySelectorAll('input[name="duration"]').forEach((input) => input.addEventListener("change", updatePreview));
