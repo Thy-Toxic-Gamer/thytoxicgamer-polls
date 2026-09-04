@@ -22,8 +22,12 @@ export default {
 
     try {
       const path = normalizePath(new URL(request.url).pathname);
-      if (request.method !== "GET" || path !== "/api/archive") {
+      if (path !== "/api/archive" || !new Set(["GET", "DELETE"]).has(request.method)) {
         throw new ApiError("not_found", "Route not found.", 404);
+      }
+      if (request.method === "DELETE") {
+        await requireOwner(request);
+        return await deletePollArchive(request);
       }
       await requireStaff(request);
       return await getPollArchive(request);
@@ -58,6 +62,43 @@ async function requireStaff(request: Request) {
   if (!staff?.active) {
     throw new ApiError("forbidden", "This Twitch account is not authorized for Poll Center controls.", 403);
   }
+}
+
+async function requireOwner(request: Request) {
+  const token = bearerToken(request);
+  if (!token) throw new ApiError("unauthorized", "Sign in with Twitch to continue.", 401);
+  const { data: userResult, error: userError } = await db.auth.getUser(token);
+  if (userError || !userResult.user) {
+    throw new ApiError("unauthorized", "Your Twitch session has expired. Sign in again.", 401);
+  }
+  const { data: staff, error: staffError } = await db
+    .from("poll_staff")
+    .select("active, role")
+    .eq("user_id", userResult.user.id)
+    .maybeSingle();
+  if (staffError) throw staffError;
+  if (!staff?.active || staff.role !== "owner") {
+    throw new ApiError("owner_required", "Only the Poll Center Owner can clear archived polls.", 403);
+  }
+}
+
+async function deletePollArchive(request: Request) {
+  const url = new URL(request.url);
+  const status = cleanText(url.searchParams.get("status") || "closed", 20).toLowerCase();
+  const search = cleanText(url.searchParams.get("search"), 80);
+  if (!new Set(["closed", "cancelled", "all"]).has(status)) {
+    throw new ApiError("invalid_archive_status", "Choose completed, cancelled, or all archived polls.");
+  }
+  let query = db.from("polls").select("id").neq("status", "active");
+  if (status !== "all") query = query.eq("status", status);
+  if (search) query = query.ilike("question", `%${search}%`);
+  const { data, error } = await query;
+  if (error) throw error;
+  const ids = (data ?? []).map((row) => row.id);
+  if (!ids.length) return json(request, { deleted: 0 });
+  const { error: deleteError } = await db.from("polls").delete().in("id", ids).neq("status", "active");
+  if (deleteError) throw deleteError;
+  return json(request, { deleted: ids.length });
 }
 
 async function getPollArchive(request: Request) {
@@ -158,7 +199,7 @@ function corsHeaders(request: Request) {
   return {
     "Access-Control-Allow-Origin": allowed ? origin : SITE_ORIGIN,
     "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, DELETE, OPTIONS",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   };
